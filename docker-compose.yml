@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: quickbite-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: quickbite
+      POSTGRES_PASSWORD: quickbite_dev_pass
+      POSTGRES_DB: quickbite_users
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

@@ -1,0 +1,33 @@
+# Java / Spring Boot
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/
+HELP.md
+
+# Node
+node_modules/
+npm-debug.log*
+dist/
+build/
+
+# Environment secrets
+.env
+*.env
+
+# IDE
+.idea/
+.vscode/
+*.iml
+nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
