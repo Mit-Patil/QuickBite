@@ -19,3 +19,24 @@
 - Spring Boot init for user-service (Web, JPA, Postgres Driver, Security, Validation dependencies)
 - Wire up application.yml / .env for DB connection (env-variable driven, no hardcoded secrets)
 - Build basic User entity + repository, confirm Spring Boot can read/write to the users table
+
+## Session 2 — 2026-08-09
+**Worked on:** 
+- Generated user-service Spring Boot project via start.spring.io (Web, JPA, PostgreSQL Driver, Validation, Security)
+- Opened project in NetBeans
+- Set up .env (DB_URL, DB_USERNAME, DB_PASSWORD) + application.yml, using spring-dotenv to load .env into Spring's environment
+- Set ddl-auto: validate (not update) — schema is managed via SQL migrations only, Hibernate just checks entity matches table
+- Created User.java entity — UUID id, email/passwordHash/fullName/phone/role, Role enum (CUSTOMER/RESTAURANT_OWNER/DELIVERY_PARTNER/ADMIN) mapped with @Enumerated(STRING), @PrePersist/@PreUpdate for auto timestamps
+
+**Decisions made:** 
+- Skipping Lombok for now — writing getters/setters manually to actually understand JPA fundamentals before automating them. Will introduce Lombok in a future entity once comfortable.
+- @Enumerated(EnumType.STRING) used deliberately over default ordinal storage — avoids data corruption risk if enum order changes later
+
+**Blockers/issues:** 
+- Had a typo (craetedAt → createdAt) caught and fixed before moving on
+
+**Next session starts with:** 
+- Create UserRepository interface (Spring Data JPA)
+- Create a simple test REST endpoint/controller to confirm end-to-end: NetBeans app → Postgres container → users table
+- Run the app, verify no errors from ddl-auto: validate (confirms entity matches table exactly)
+- If time permits: insert a test user via endpoint, view it appear in pgAdmin
