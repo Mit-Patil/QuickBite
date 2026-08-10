@@ -28,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+                <argLine>-Duser.timezone=Asia/Kolkata</argLine>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -72,11 +73,6 @@
 			<artifactId>spring-boot-starter-webmvc-test</artifactId>
 			<scope>test</scope>
 		</dependency>
-                <dependency>
-                    <groupId>me.paulschwarz</groupId>
-                    <artifactId>spring-dotenv</artifactId>
-                    <version>4.0.0</version>
-                </dependency>
 	</dependencies>
 
 	<build>
