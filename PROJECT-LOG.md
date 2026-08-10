@@ -40,3 +40,21 @@
 - Create a simple test REST endpoint/controller to confirm end-to-end: NetBeans app → Postgres container → users table
 - Run the app, verify no errors from ddl-auto: validate (confirms entity matches table exactly)
 - If time permits: insert a test user via endpoint, view it appear in pgAdmin
+
+## Session 3 — 2026-08-10
+**Worked on:** 
+- Built full registration flow for user-service: UserRepository, DTOs (RegisterRequest/UserResponse), UserService, UserController, SecurityBeansConfig (BCrypt bean), SecurityConfig (public endpoints), GlobalExceptionHandler
+- Fixed multiple environment bugs: .env syntax (no spaces around =), spring-dotenv incompatibility with Spring Boot 4.x (switched to native spring.config.import), Windows timezone alias bug (Asia/Calcutta → set via -Duser.timezone=Asia/Kolkata in pom.xml argLine), NetBeans Run button exec:exec issue (use mvnw spring-boot:run directly)
+- Verified full flow end-to-end via curl: POST /api/users/register returns 201 with clean UserResponse (no password leaked), duplicate email returns clean 400 via GlobalExceptionHandler
+
+**Decisions made:** 
+- Removed role from RegisterRequest entirely — public signup always hardcodes CUSTOMER; other roles (restaurant owner, delivery partner) will get separate endpoints later, never client-selectable — avoids privilege escalation vulnerability
+- Centralized error handling via @RestControllerAdvice instead of per-method try/catch — keeps controllers clean, reusable pattern for future services
+
+**Blockers/issues:** 
+- PowerShell's Invoke-WebRequest hides response body on non-2xx status — use curl.exe or try/catch pattern to see actual error JSON
+
+**Next session starts with:** 
+- Build login endpoint: verify password via passwordEncoder.matches(), generate and return JWT on success
+- Add JWT secret to .env, create JwtUtil/JwtService for token generation + validation
+- Update SecurityConfig to permit /api/users/login publicly (already pre-listed)
