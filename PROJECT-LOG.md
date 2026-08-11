@@ -58,3 +58,20 @@
 - Build login endpoint: verify password via passwordEncoder.matches(), generate and return JWT on success
 - Add JWT secret to .env, create JwtUtil/JwtService for token generation + validation
 - Update SecurityConfig to permit /api/users/login publicly (already pre-listed)
+
+## Session 4 — 2026-08-11
+**Worked on:** 
+- Built login flow: LoginRequest/LoginResponse DTOs, JwtService (token generation/validation via JJWT), login() in UserService (password verification via passwordEncoder.matches(), generic error message to prevent user enumeration), login endpoint in UserController
+- Verified full flow: correct credentials return signed JWT, wrong credentials return clean 400 with generic error
+
+**Decisions made:** 
+- JWT secret must be 32+ chars (256-bit minimum) — JJWT enforces this strictly, unlike some looser libraries used in past projects
+- Login and registration deliberately kept as separate, isolated code paths — good debugging lesson: when only one endpoint fails, suspect endpoint-specific logic first, not shared infra
+
+**Blockers/issues:** 
+- Spent significant time chasing a false lead (403 errors from PowerShell/curl quoting issues masking the real bug) before finding the actual WeakKeyException root cause — real lesson: verbose/raw error output matters, don't trust surface-level status codes alone
+- PowerShell's Invoke-RestMethod and curl.exe both hide response bodies on non-2xx errors — use try/catch + StreamReader pattern to see actual server error messages
+
+**Next session starts with:** 
+- Build JWT authentication filter (OncePerRequestFilter) — validates Authorization header on protected routes, sets authenticated user context before requests reach controllers
+- Wire filter into SecurityConfig, test with a simple protected endpoint (e.g., GET /api/users/me)

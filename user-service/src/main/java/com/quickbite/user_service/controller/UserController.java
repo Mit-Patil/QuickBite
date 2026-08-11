@@ -1,6 +1,8 @@
 
 package com.quickbite.user_service.controller;
 
+import com.quickbite.user_service.dto.LoginRequest;
+import com.quickbite.user_service.dto.LoginResponse;
 import com.quickbite.user_service.dto.RegisterRequest;
 import com.quickbite.user_service.dto.UserResponse;
 import com.quickbite.user_service.service.UserService;
@@ -24,5 +26,11 @@ public class UserController {
     public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request){
         UserResponse response  = userService.register(request);
         return ResponseEntity.status(201).body(response);
+    }
+    
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request){
+        LoginResponse response = userService.login(request);
+        return ResponseEntity.ok(response);
     }
 }
