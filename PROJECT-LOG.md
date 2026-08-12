@@ -75,3 +75,20 @@
 **Next session starts with:** 
 - Build JWT authentication filter (OncePerRequestFilter) — validates Authorization header on protected routes, sets authenticated user context before requests reach controllers
 - Wire filter into SecurityConfig, test with a simple protected endpoint (e.g., GET /api/users/me)
+
+## Session 5 — 2026-08-12
+**Worked on:** 
+- Built JwtAuthFilter (OncePerRequestFilter) — extracts Bearer token from Authorization header, validates via JwtService, attaches authenticated identity (userId + role) to SecurityContextHolder
+- Wired filter into SecurityConfig via addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+- Added protected test endpoint GET /api/users/me to verify full auth chain
+- Verified all three scenarios: no token → 403, valid token → 200 with correct identity, invalid/fake token → 403
+
+**Decisions made:** 
+- Filter design: missing/invalid token doesn't immediately reject — it lets the request continue unauthenticated, and Spring Security's authorizeHttpRequests rules (anyRequest().authenticated()) handle the actual rejection. Keeps filter's responsibility narrow (attach identity if valid) vs authorization decision (separate concern)
+
+**Blockers/issues:** 
+- Daily recurring issue: Postgres Docker container not running after reboot — always run `docker compose up -d` before starting work
+
+**Next session starts with:** 
+- User Service core auth is now feature-complete (register, login, JWT issuance, JWT validation on protected routes)
+- Next: decide between (a) adding role-based authorization (e.g. @PreAuthorize / hasRole checks for future restaurant-owner/delivery-partner endpoints) to round out User Service, or (b) moving on to restaurant-order-service and starting Saga/Kafka work

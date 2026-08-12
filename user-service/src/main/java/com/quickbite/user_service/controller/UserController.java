@@ -33,4 +33,17 @@ public class UserController {
         LoginResponse response = userService.login(request);
         return ResponseEntity.ok(response);
     }
+    
+    @GetMapping("/me")
+    public ResponseEntity<String> me(){
+        var authentication = org.springframework.security.core.context.SecurityContextHolder
+                .getContext()
+                .getAuthentication();
+        
+        String userId = (String) authentication.getPrincipal();
+        String role = authentication.getAuthorities().iterator().next().getAuthority();
+        
+        return ResponseEntity.ok("You Are user " + userId + " With " + role);
+    }
+    
 }
