@@ -92,3 +92,29 @@
 **Next session starts with:** 
 - User Service core auth is now feature-complete (register, login, JWT issuance, JWT validation on protected routes)
 - Next: decide between (a) adding role-based authorization (e.g. @PreAuthorize / hasRole checks for future restaurant-owner/delivery-partner endpoints) to round out User Service, or (b) moving on to restaurant-order-service and starting Saga/Kafka work
+
+## Session 6 — 2026-08-13
+**Worked on:** 
+- Designed and locked final schema for role-specific profile tables: customer_profile (gender, DOB, profile pic), addresses (one-to-many, label/landmark/coordinates/is_default), delivery_partner_profile (vehicle info, verification_status, availability, live location), restaurant_owner_profile (business name, logo, verification_status)
+- Ran V2 migration, created all 4 tables in pgAdmin
+- Built JPA entities: CustomerProfile, Address, DeliveryPartnerProfile, RestaurantOwnerProfile (introduced @OneToOne + @MapsId pattern for 1:1 profile tables, @ManyToOne for one-to-many addresses)
+- Built repositories for all 4 entities
+- Built RegisterRestaurantOwnerRequest / RegisterDeliveryPartnerRequest DTOs
+- Extended UserService: register() now also creates CustomerProfile row; added registerRestaurantOwner() and registerDeliveryPartner(), all wrapped in @Transactional for atomic multi-table writes
+- Added /register/restaurant-owner and /register/delivery-partner endpoints, updated SecurityConfig to permit them publicly
+- Verified restaurant-owner registration end-to-end: 201 response, correct role, profile row created atomically
+
+**Decisions made:** 
+- Restaurant/delivery partner accounts get verification_status (PENDING/APPROVED/REJECTED) — matches real-world onboarding (Swiggy/Zomato don't auto-activate these roles), admin approval flow deferred to later
+- profile_pic_url / logo_url deliberately excluded from registration DTOs — file uploads belong in a separate "update profile" flow, not signup
+- Kept registration DTOs separate per role (not one shared DTO) — validation differs meaningfully per role or would require dropping @NotBlank annotations; some field duplication accepted as reasonable tradeoff for clarity
+- @Transactional added to all multi-table register methods — ensures User + Profile insert together or not at all, preventing orphaned user rows
+
+**Blockers/issues:** 
+- None significant today — smooth session once schema was properly planned upfront (worth the extra discussion time before writing SQL)
+
+**Next session starts with:** 
+- Test delivery-partner registration endpoint (same pattern, not yet verified)
+- Build GET /api/users/me (proper version — replace today's test stub) returning full profile data joined with role-specific profile
+- Build PUT /api/users/me for profile updates (including profilePicUrl/logoUrl, address management)
+- Add role-based authorization (@PreAuthorize) once role-specific endpoints exist (e.g. only DELIVERY_PARTNER can toggle their own availability)

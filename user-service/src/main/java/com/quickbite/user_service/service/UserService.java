@@ -3,11 +3,20 @@ package com.quickbite.user_service.service;
 
 import com.quickbite.user_service.dto.LoginRequest;
 import com.quickbite.user_service.dto.LoginResponse;
+import com.quickbite.user_service.dto.RegisterDeliveryPartnerRequest;
 import com.quickbite.user_service.dto.RegisterRequest;
+import com.quickbite.user_service.dto.RegisterRestaurantOwnerRequest;
 import com.quickbite.user_service.dto.UserResponse;
+import com.quickbite.user_service.entity.CustomerProfile;
+import com.quickbite.user_service.entity.DeliveryPartnerProfile;
+import com.quickbite.user_service.entity.RestaurantOwnerProfile;
 import com.quickbite.user_service.repository.UserRepository;
 import com.quickbite.user_service.entity.User;
+import com.quickbite.user_service.repository.CustomerProfileRepository;
+import com.quickbite.user_service.repository.DeliveryPartnerProfileRepository;
+import com.quickbite.user_service.repository.RestaurantOwnerProfileRepository;
 import com.quickbite.user_service.security.JwtService;
+import jakarta.transaction.Transactional;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -15,16 +24,29 @@ import org.springframework.stereotype.Service;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final CustomerProfileRepository customerProfileRepository;
+    private final DeliveryPartnerProfileRepository deliveryPartnerProfileRepository;
+    private final RestaurantOwnerProfileRepository restaurantOwnerProfileRepository;   
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    
-    
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder,JwtService jwtService) {
+
+    public UserService(UserRepository userRepository,
+            CustomerProfileRepository customerProfileRepository,
+            DeliveryPartnerProfileRepository deliveryPartnerProfileRepository,
+            RestaurantOwnerProfileRepository restaurantOwnerProfileRepository,
+            PasswordEncoder passwordEncoder, 
+            JwtService jwtService) {
         this.userRepository = userRepository;
+        this.customerProfileRepository = customerProfileRepository;
+        this.deliveryPartnerProfileRepository = deliveryPartnerProfileRepository;
+        this.restaurantOwnerProfileRepository = restaurantOwnerProfileRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
     }
+ 
+    
 
+    @Transactional
     public UserResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email already registered");
@@ -39,7 +61,59 @@ public class UserService {
 
         User savedUser = userRepository.save(user);
 
+        CustomerProfile profile = new CustomerProfile();
+        profile.setUser(savedUser);
+        customerProfileRepository.save(profile);
+        
         return toResponse(savedUser);
+    }
+    
+    @Transactional
+    public UserResponse registerRestaurantOwner(RegisterRestaurantOwnerRequest request){
+        if(userRepository.existsByEmail(request.getEmail())){
+            throw new IllegalArgumentException("Email already registered");
+        }
+        
+        User user = new User();
+                user.setEmail(request.getEmail());
+                user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+                user.setFullName(request.getFullName());
+                user.setPhone(request.getPhone());
+                user.setRole(User.Role.RESTAURANT_OWNER);
+                
+                User savedUser = userRepository.save(user);
+                
+                RestaurantOwnerProfile profile = new RestaurantOwnerProfile();
+                profile.setUser(savedUser);
+                profile.setBusinessName(request.getBusinessName());
+                restaurantOwnerProfileRepository.save(profile);
+                
+                return toResponse(savedUser);
+    }
+    
+    @Transactional
+    public UserResponse registerDeliveryPartner(RegisterDeliveryPartnerRequest request){
+        if(userRepository.existsByEmail(request.getEmail())){
+            throw new IllegalArgumentException("Email Already Exists");
+        }
+        
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setFullName(request.getFullName());
+        user.setPhone(request.getPhone());
+        user.setRole(User.Role.DELIVERY_PARTNER);
+        
+        User savedUser = userRepository.save(user);
+        
+        DeliveryPartnerProfile profile = new DeliveryPartnerProfile();
+        profile.setUser(savedUser);
+        profile.setVehicleType(request.getVehicleType());
+        profile.setVehicleNumber(request.getVehicleNumber());
+        deliveryPartnerProfileRepository.save(profile);
+        
+        return toResponse(savedUser);
+        
     }
     
     public LoginResponse login(LoginRequest request){

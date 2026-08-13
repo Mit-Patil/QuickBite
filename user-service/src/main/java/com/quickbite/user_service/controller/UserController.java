@@ -3,7 +3,9 @@ package com.quickbite.user_service.controller;
 
 import com.quickbite.user_service.dto.LoginRequest;
 import com.quickbite.user_service.dto.LoginResponse;
+import com.quickbite.user_service.dto.RegisterDeliveryPartnerRequest;
 import com.quickbite.user_service.dto.RegisterRequest;
+import com.quickbite.user_service.dto.RegisterRestaurantOwnerRequest;
 import com.quickbite.user_service.dto.UserResponse;
 import com.quickbite.user_service.service.UserService;
 import jakarta.validation.Valid;
@@ -44,6 +46,21 @@ public class UserController {
         String role = authentication.getAuthorities().iterator().next().getAuthority();
         
         return ResponseEntity.ok("You Are user " + userId + " With " + role);
+    }
+    
+    
+    @PostMapping("/register/restaurant-owner")
+    public ResponseEntity<UserResponse> registerRestaurantOwner(@Valid @RequestBody RegisterRestaurantOwnerRequest request){
+        UserResponse response = userService.registerRestaurantOwner(request);
+        return ResponseEntity.status(201).body(response);
+    }
+    
+    @PostMapping("/regsiter/delivery-partner")
+    public ResponseEntity<UserResponse> registerDeliveryPartner(@Valid @RequestBody RegisterDeliveryPartnerRequest request){
+        
+        UserResponse response = userService.registerDeliveryPartner(request);
+        return ResponseEntity.status(201).body(response);
+        
     }
     
 }
