@@ -55,7 +55,7 @@ public class UserController {
         return ResponseEntity.status(201).body(response);
     }
     
-    @PostMapping("/regsiter/delivery-partner")
+    @PostMapping("/register/delivery-partner")
     public ResponseEntity<UserResponse> registerDeliveryPartner(@Valid @RequestBody RegisterDeliveryPartnerRequest request){
         
         UserResponse response = userService.registerDeliveryPartner(request);
