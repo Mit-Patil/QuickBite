@@ -136,3 +136,22 @@
 - Build PUT /api/users/me for profile updates (role-specific: gender/DOB/profilePicUrl for customer, vehicle info for delivery partner, business info for restaurant owner)
 - Build address management endpoints (POST/GET/PUT/DELETE for addresses table)
 - Add role-based authorization (@PreAuthorize) — e.g. restrict certain future endpoints to specific roles
+
+## Session 8 — 2026-08-15
+**Worked on:** 
+- Built role-specific profile update endpoints (PUT /me/customer, /me/delivery-partner, /me/restaurant-owner) — partial updates, only non-null fields applied
+- Added @PreAuthorize role checks on top of existing service-layer role checks (defense in depth — rejects unauthorized role access before reaching controller/DB)
+- Built full address CRUD: POST/GET/PUT/DELETE /me/addresses, with ownership verification (users can only modify their own addresses) and single-default-address enforcement via clearExistingDefault()
+- Verified full test matrix: partial updates preserve untouched fields, role mismatches correctly rejected at both @PreAuthorize and service layer, cross-user address modification blocked
+
+**Decisions made:** 
+- User Service declared feature-complete for now: registration (3 roles), login, JWT auth + validation filter, role-based authorization, full profile CRUD, full address CRUD
+- Deferred: admin verification-approval endpoints, logout/token-blocklist — both depend on needs from other services not yet built, revisit when actually needed rather than building speculatively
+- Confirmed sequencing: finish restaurant-order-service (Saga/Kafka) before starting frontend, so UI work isn't done against a single-service backend
+
+**Blockers/issues:** 
+- None — clean session, no debugging detours
+
+**Next session starts with:** 
+- Start restaurant-order-service: new Spring Boot project, own Postgres database (DB-per-service), initial schema (restaurants, menu_items, orders, order_items)
+- This is a new, larger service — expect multiple sessions covering Saga orchestration pattern and eventual Kafka integration
