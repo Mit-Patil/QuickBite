@@ -118,3 +118,21 @@
 - Build GET /api/users/me (proper version — replace today's test stub) returning full profile data joined with role-specific profile
 - Build PUT /api/users/me for profile updates (including profilePicUrl/logoUrl, address management)
 - Add role-based authorization (@PreAuthorize) once role-specific endpoints exist (e.g. only DELIVERY_PARTNER can toggle their own availability)
+
+## Session 7 — 2026-08-14
+**Worked on:** 
+- Verified delivery-partner registration end-to-end (201, correct role, profile row created)
+- Built proper GET /api/users/me — replaces earlier test stub, now fetches role-specific profile table (CustomerProfile/DeliveryPartnerProfile/RestaurantOwnerProfile) based on user's role using a switch expression, combines with base user data
+- Built three role-specific response DTOs (CustomerProfileResponse, DeliveryPartnerProfileResponse, RestaurantOwnerProfileResponse)
+- Verified /me correctly returns full profile for users registered after the @Transactional fix, and correctly throws clean "Profile not found" error for older users registered before profile-row creation existed (expected legacy data gap, not a bug)
+
+**Decisions made:** 
+- Conversation getting very long (multiple sessions in one chat) — decided to continue in this same chat rather than split, to preserve flow across the 4-service project; will rely on PROJECT-LOG.md + context doc if a fresh chat becomes necessary later
+
+**Blockers/issues:** 
+- Old test users (test2@example.com etc.) lack profile rows since they predate today's @Transactional register() change — not a bug, just stale test data from earlier sessions
+
+**Next session starts with:** 
+- Build PUT /api/users/me for profile updates (role-specific: gender/DOB/profilePicUrl for customer, vehicle info for delivery partner, business info for restaurant owner)
+- Build address management endpoints (POST/GET/PUT/DELETE for addresses table)
+- Add role-based authorization (@PreAuthorize) — e.g. restrict certain future endpoints to specific roles

@@ -1,11 +1,14 @@
 
 package com.quickbite.user_service.service;
 
+import com.quickbite.user_service.dto.CustomerProfileResponse;
+import com.quickbite.user_service.dto.DeliveryPartnerProfileResponse;
 import com.quickbite.user_service.dto.LoginRequest;
 import com.quickbite.user_service.dto.LoginResponse;
 import com.quickbite.user_service.dto.RegisterDeliveryPartnerRequest;
 import com.quickbite.user_service.dto.RegisterRequest;
 import com.quickbite.user_service.dto.RegisterRestaurantOwnerRequest;
+import com.quickbite.user_service.dto.RestaurantOwnerProfileResponse;
 import com.quickbite.user_service.dto.UserResponse;
 import com.quickbite.user_service.entity.CustomerProfile;
 import com.quickbite.user_service.entity.DeliveryPartnerProfile;
@@ -17,6 +20,7 @@ import com.quickbite.user_service.repository.DeliveryPartnerProfileRepository;
 import com.quickbite.user_service.repository.RestaurantOwnerProfileRepository;
 import com.quickbite.user_service.security.JwtService;
 import jakarta.transaction.Transactional;
+import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -126,6 +130,31 @@ public class UserService {
         String token = jwtService.generateToken(user.getId(), user.getEmail(), user.getRole().name());
         
         return new LoginResponse(token, user.getEmail(), user.getRole().name());
+    }
+    
+    public Object getProfile(UUID userId){
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User Not Found"));
+        
+        return switch(user.getRole()){
+            case CUSTOMER ->{
+                CustomerProfile profile = customerProfileRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("Profile not found"));
+                yield new CustomerProfileResponse(user,profile);
+            }
+            case DELIVERY_PARTNER -> {
+                DeliveryPartnerProfile profile = deliveryPartnerProfileRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("Profile not found"));
+                yield new DeliveryPartnerProfileResponse(user,profile);
+            }
+            case RESTAURANT_OWNER ->{
+                RestaurantOwnerProfile profile = restaurantOwnerProfileRepository.findById(userId)
+                        .orElseThrow(() -> new IllegalArgumentException("Profile not Found"));
+                yield new RestaurantOwnerProfileResponse(user, profile);
+            }
+            case ADMIN -> toResponse(user);
+            
+        };
     }
 
     private UserResponse toResponse(User user) {

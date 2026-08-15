@@ -9,6 +9,7 @@ import com.quickbite.user_service.dto.RegisterRestaurantOwnerRequest;
 import com.quickbite.user_service.dto.UserResponse;
 import com.quickbite.user_service.service.UserService;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,15 +38,14 @@ public class UserController {
     }
     
     @GetMapping("/me")
-    public ResponseEntity<String> me(){
+    public ResponseEntity<?> me(){
         var authentication = org.springframework.security.core.context.SecurityContextHolder
                 .getContext()
                 .getAuthentication();
         
-        String userId = (String) authentication.getPrincipal();
-        String role = authentication.getAuthorities().iterator().next().getAuthority();
-        
-        return ResponseEntity.ok("You Are user " + userId + " With " + role);
+      UUID userId = UUID.fromString((String) authentication.getPrincipal());
+      
+      return ResponseEntity.ok(userService.getProfile(userId));
     }
     
     
