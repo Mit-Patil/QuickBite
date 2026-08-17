@@ -155,3 +155,48 @@
 **Next session starts with:** 
 - Start restaurant-order-service: new Spring Boot project, own Postgres database (DB-per-service), initial schema (restaurants, menu_items, orders, order_items)
 - This is a new, larger service — expect multiple sessions covering Saga orchestration pattern and eventual Kafka integration
+
+## Session 9 — 2026-08-16
+**Worked on:** 
+- Locked full restaurant-order-service schema: expanded from initial 4 tables to 10 — added cart layer (carts, cart_items, cart_item_addons) and GST/stock tracking after identifying real gaps (multi-restaurant cart confusion, no inventory field, no tax field)
+- Wrote V1 (restaurants, menu_items, item_variants, item_addons), V2 (orders, order_items, order_item_addons), V3 (carts, cart_items, cart_item_addons) migrations, ran all against quickbite_orders — clean
+- Built all 10 JPA entities with Lombok (@Data, @Builder, @NoArgsConstructor, @AllArgsConstructor) — first real use of Lombok in the project
+- Introduced and correctly implemented: @ManyToOne + FetchType.LAZY for cross-table refs within same DB, BigDecimal for all money fields (never double/float), @PrePersist/@PreUpdate for timestamp automation, @Embeddable + @EmbeddedId + @MapsId for CartItemAddon's composite primary key (cart_item_id + addon_id, no standalone id column)
+- Verified BUILD SUCCESS on full project compile
+
+**Decisions made:** 
+- Cart is single-restaurant per active cart (UNIQUE constraint on customer_id) — enforces "no multi-restaurant order" rule at the DB level, matches real Swiggy/Zomato UX, resolves multi-restaurant-order question cleanly
+- Cart data is live/mutable (references menu_items/item_variants/item_addons directly, no snapshotting); Order data is frozen/snapshotted (item_name, variant_name, unit_price, addon_name, addon_price all copied at order-placement time) — core principle: past receipts must never change even if menu prices change later
+- stock_quantity on menu_items is nullable (NULL = untracked/unlimited); auto-decrements on order placement, ties directly into future Saga reserve/compensate step
+- tax_amount added to orders (GST), snapshotted like everything else; actual rate kept in application.yml config, not DB
+- Per-day operating hours (Mon–Sun schedule) considered and deliberately deferred — read overhead not worth it given other priority work (Saga/Kafka); simple is_24_7 + single opening/closing time used instead
+- restaurant_type (RESTAURANT vs CLOUD_KITCHEN) added to distinguish home/cloud kitchens from physical dine-in locations
+
+**Blockers/issues:** 
+- Two real entity bugs caught and fixed during hand-writing: GenerationType.IDENTITY used incorrectly on a UUID @Id (would have broken inserts — corrected to GenerationType.UUID), and a plain UUID restaurantId field written instead of a proper @ManyToOne relationship (would have required manual joins everywhere — corrected to @ManyToOne + @JoinColumn)
+- CartItemAddon's composite key was the one genuinely new JPA pattern this session — required @Embeddable/@EmbeddedId, distinct from the @OneToOne + @MapsId pattern already known from CustomerProfile
+
+**Next session starts with:** 
+- Build repositories for all 10 entities (should move fast — Spring Data JPA interfaces are largely one-liners once entities are correct)
+- Then DTOs + service layer for: restaurant CRUD, menu management, cart operations (add/remove item, clear on restaurant switch), order placement (this is where Saga orchestration begins)
+
+
+## Session 10 — 2026-08-17
+**Worked on:** 
+- Fixed a real repository bug from Session 9's build: typo in MenuItemRepository derived-query method (findByRestaurantIdAndIsAvaiableTrue → IsAvailableTrue) — caught via app startup failure, not a compile error, confirmed BUILD SUCCESS after fix
+- Built all 16 DTOs across restaurant, menu (+ variants/addons), cart, and order — request/response split for each
+- Locked Lombok convention for DTOs specifically: request DTOs get @Data only (Jackson deserializes these, needs implicit no-arg constructor); response DTOs get @Data + @Builder (constructed manually in service code, never deserialized)
+- Introduced nested DTO composition (List<OtherDTO> fields) for one-to-many response shapes (MenuItemResponse holding variants/addons, OrderResponse holding order items)
+
+**Decisions made:** 
+- is_active deliberately excluded from all owner-facing restaurant DTOs (create and update) — admin-only field, owner must never be able to reactivate their own deactivated restaurant; will get a separate admin DTO/endpoint later
+- is_open included on UpdateRestaurantRequest but not CreateRestaurantRequest — schema default (true) handles initial state, owner only needs to toggle it after the restaurant already exists
+- PlaceOrderRequest kept intentionally minimal (just deliveryAddressId) — order contents/prices are always derived server-side from the cart + live menu data at checkout time, never trusted from the client, consistent with the role-stripping pattern from user-service
+- CartItemResponse uses flat List<String> for addon names (display-only, no price breakdown needed); OrderItemResponse uses full List<OrderItemAddonResponse> DTOs (permanent receipt needs per-addon pricing) — DTO shape follows what each specific screen needs, not a 1:1 mirror of the schema
+
+**Blockers/issues:** 
+- One real typo bug in MenuItemRepository (isAvaiable vs isAvailable) — invisible to compiler, only surfaced at Spring Boot startup when the derived query gets parsed; good reminder that `mvn compile` alone doesn't validate repository method names, need a full app boot/`mvn clean install`
+
+**Next session starts with:** 
+- Build the service layer: RestaurantService, MenuItemService (+ variant/addon management), CartService (live price computation on every fetch), OrderService (checkout flow — cart → order snapshot, this is where Saga orchestration begins: reserve stock → trigger payment → confirm order, with compensation on failure)
+- This is the biggest jump in complexity so far — first real business logic tying entities + repositories + DTOs together
