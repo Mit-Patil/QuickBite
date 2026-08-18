@@ -52,7 +52,7 @@ public class Restaurant {
     private Double longitude;   
 
     @Column(name = "is_24_7", nullable = false)
-    private boolean is24x7;
+    private boolean twentyFourSeven;
     
     @Column(name = "opening_time")
     private LocalTime openingTime;

@@ -32,7 +32,7 @@ public class CreateRestaurantRequest {
     private Double latitude;
     private Double longitude;
     
-    private boolean is24x7;   
+    private boolean twentyFourSeven;   
     
     private String openingTime; 
     private String closingTime;         

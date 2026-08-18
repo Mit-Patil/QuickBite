@@ -16,7 +16,7 @@ public class RestaurantResponse {
     private String addressLine;
     private String city;
     private String pincode;
-    private boolean is24x7;
+    private boolean twentyFourSeven;
     private String openingTime;
     private String closingTime;
     private boolean isOpen;
