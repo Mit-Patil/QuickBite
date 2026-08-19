@@ -200,3 +200,40 @@
 **Next session starts with:** 
 - Build the service layer: RestaurantService, MenuItemService (+ variant/addon management), CartService (live price computation on every fetch), OrderService (checkout flow — cart → order snapshot, this is where Saga orchestration begins: reserve stock → trigger payment → confirm order, with compensation on failure)
 - This is the biggest jump in complexity so far — first real business logic tying entities + repositories + DTOs together
+
+
+## Session 11 — 2026-08-18
+**Worked on:** 
+- Built RestaurantService: createRestaurant, getMyRestaurants, getById, updateRestaurant, plus private toResponse() mapper method
+- Reviewed and confirmed: toResponse() pattern exists for reuse across multiple methods + separation of business logic from DTO conversion; builder field order is irrelevant (named calls, not positional); ownerId cannot be fetched cross-DB (no REFERENCES to users table) — will be extracted from validated JWT at the controller layer once security is wired in, passed to service as a plain parameter
+- Confirmed each microservice needs its own GlobalExceptionHandler — no cross-service class sharing possible (separate JVM/Spring context/classpath per service), not duplication, correct microservices design
+- Identified a likely compile blocker: is24x7 field name has 'is' followed by a digit, not uppercase letter, so Lombok's boolean-getter special case may not trigger, causing a getter name mismatch (isIs24x7() vs expected is24x7())
+
+**Decisions made:** 
+- Renaming is24x7 → twentyFourSeven (or similar) across Restaurant entity, CreateRestaurantRequest, UpdateRestaurantRequest, RestaurantResponse to avoid Lombok's digit-after-is ambiguity entirely, rather than relying on IDE-suggested naming
+- Confirmed ownerId extraction belongs in the controller layer (post-JWT-validation), not the service layer — keeps service methods agnostic to how identity was obtained
+
+**Blockers/issues:** 
+- JWT validation not yet wired into restaurant-order-service — open decision from Session 10, still pending: copy JwtService/JwtAuthFilter from user-service before building the controller layer
+
+**Next session starts with:** 
+- Complete is24x7 → twentyFourSeven rename across all 5 affected files, verify build success
+- Decide and wire JWT validation into restaurant-order-service (copy JwtService/JwtAuthFilter pattern from user-service)
+- Continue service layer: MenuItemService (+ variant/addon management), then CartService, then OrderService
+
+## Session 12 — 2026-08-19
+**Worked on:** 
+- Wired JWT validation into restaurant-order-service: JwtService (validation-only, no issuance), JwtAuthFilter (OncePerRequestFilter, identical shape to user-service), SecurityConfig (stateless, /browse/** public, everything else authenticated)
+- Built RestaurantController: create/getMyRestaurants/getById/update, with @PreAuthorize role checks and getCurrentUserId() helper reading UUID directly from SecurityContextHolder principal
+
+
+**Decisions made:** 
+- Same JWT secret shared across user-service and restaurant-order-service .env files — lets this service trust tokens without ever calling back to user-service or its database
+- getById endpoint deliberately has no @PreAuthorize — public restaurant browsing needs no authentication, matches real-world menu browsing UX
+
+**Blockers/issues:** 
+- None this session — clean build, clean tests
+
+**Next session starts with:** 
+- MenuItemController + MenuItemService (+ variant/addon sub-resource endpoints) — same shape as Restaurant now that the security pattern is proven and repeatable
+- Then CartService/CartController, then OrderService (Saga begins)
