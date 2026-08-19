@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 public class RestaurantOrderServiceApplication {
 
 	public static void main(String[] args) {
+                    System.setProperty("user.timezone", "Asia/Kolkata");
 		SpringApplication.run(RestaurantOrderServiceApplication.class, args);
 	}
 
