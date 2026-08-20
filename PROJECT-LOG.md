@@ -237,3 +237,16 @@
 **Next session starts with:** 
 - MenuItemController + MenuItemService (+ variant/addon sub-resource endpoints) — same shape as Restaurant now that the security pattern is proven and repeatable
 - Then CartService/CartController, then OrderService (Saga begins)
+
+
+## Session 13 — 2026-08-19 (cont.)
+**Worked on:** 
+- Built MenuItemService : : createMenuItem, getMenuForRestaurant, getById, updateMenuItem,addVariant,addAddon, plus private toResponse() mapper method which also return ItemVariant, ItemAddon
+- Built MenuItemController: create/getMenu/getById/update/addVariant/addAddon, with @PreAuthorize role checks and getCurrentUserId() helper reading UUID directly from SecurityContextHolder principal
+
+**Decisions made:** 
+- variant/addon sub-resource endpoints
+
+
+**Next session starts with:** 
+- test the MenuItemService + MenuItemController With proper endpoints
