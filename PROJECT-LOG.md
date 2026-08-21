@@ -250,3 +250,23 @@
 
 **Next session starts with:** 
 - test the MenuItemService + MenuItemController With proper endpoints
+
+## Session 14 — 2026-08-21
+**Worked on:** 
+- Built MenuItemService: createMenuItem, getMenuForRestaurant, getById, updateMenuItem, addVariant, addAddon, plus a private toResponse() mapper that also fetches and nests ItemVariant/ItemAddon lists via separate repository calls
+- Built MenuItemController: create/getMenu/getById/update/addVariant/addAddon, with @PreAuthorize role checks and a getCurrentUserId() helper reading UUID directly from SecurityContextHolder's principal
+- Fixed spring-boot:run timezone bug (Asia/Calcutta) via System.setProperty("user.timezone", "Asia/Kolkata") in main() — more robust than the surefire-only argLine fix since it covers every launch method
+- Fixed a real JWT validation bug: @Value("${jwt.secret") was missing its closing brace, silently breaking signature verification on every request
+- Found and fixed a Jackson/Lombok interaction bug: primitive boolean fields named isXxx (isVeg, isDefault) silently failed to deserialize from JSON, since Lombok strips the "is" prefix from primitive boolean getters/setters, causing Jackson to derive the wrong JSON property name — fixed via @JsonProperty, then cleaned up resulting duplicate JSON keys via @JsonIgnoreProperties
+- Full curl/Invoke-RestMethod regression pass across Restaurant + MenuItem endpoints: create, get-by-id (public), my-restaurants, update, nested variant/addon serialization, and negative auth tests (no token, wrong role) — all passing
+
+**Decisions made:** 
+- Menu item ownership check walks the restaurant relationship (menuItem.getRestaurant().getOwnerId()), since MenuItem has no ownerId of its own — same pattern will apply to variants/addons
+- Route design: create/get-menu nested under /api/restaurants/{restaurantId}/menu-items (created in context of a restaurant); get-by-id/update/variants/addons flat under /api/menu-items/{id} (operate directly by resource ID once it exists)
+- Adopted try/catch as the standard pattern for negative-auth PowerShell tests, since Invoke-RestMethod throws on non-2xx instead of returning the body directly
+
+**Blockers/issues:** 
+- Three real bugs found and fixed this session (timezone, JWT secret typo, Jackson boolean naming) — all silent failures with no startup error, reinforcing that clean compile/build doesn't guarantee correct runtime behavior
+
+**Next session starts with:** 
+- CartService + CartController — live price computation logic (cart items reference menu live, never snapshotted)
