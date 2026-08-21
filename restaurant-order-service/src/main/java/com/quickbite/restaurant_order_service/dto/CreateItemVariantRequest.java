@@ -1,5 +1,6 @@
 package com.quickbite.restaurant_order_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -11,5 +12,6 @@ public class CreateItemVariantRequest {
     private String name;
     @NotNull(message = "Price is required")
     private BigDecimal price;
+    @JsonProperty("isDefault")
     private boolean isDefault;
 }   

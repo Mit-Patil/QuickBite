@@ -1,5 +1,6 @@
 package com.quickbite.restaurant_order_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -13,6 +14,7 @@ public class CreateMenuItemRequest {
     @NotNull(message = "Price is required")
     private BigDecimal price;
     private String category;
+    @JsonProperty("isVeg")
     private boolean isVeg;
     private Integer stockQuantity;
     private String imageUrl;

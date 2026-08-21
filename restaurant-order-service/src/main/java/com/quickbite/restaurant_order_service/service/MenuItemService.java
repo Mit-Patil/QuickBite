@@ -37,9 +37,10 @@ public class MenuItemService {
         Restaurant restaurant = restaurantRepository.findById(restuarantId)
                 .orElseThrow(() -> new IllegalArgumentException("Restaurant Not Found"));
         
-        if(restaurant.getOwnerId().equals(ownerId)){
+        if(!restaurant.getOwnerId().equals(ownerId)){
             throw new IllegalArgumentException("You Do Not Own this Restaurant");
         }
+        
         
         MenuItem item = MenuItem.builder()
                 .restaurant(restaurant)
@@ -53,7 +54,10 @@ public class MenuItemService {
                 .imageUrl(request.getImageUrl())
                 .build();
         
+
+            
          MenuItem saved = menuItemRepository.save(item);
+         
          return toResponse(saved);
         
     }
