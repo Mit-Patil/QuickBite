@@ -270,3 +270,21 @@
 
 **Next session starts with:** 
 - CartService + CartController — live price computation logic (cart items reference menu live, never snapshotted)
+
+## Session 15 — 2026-08-22
+**Worked on:** 
+- Built CartService: addToCart (auto-creates cart on first item, enforces single-restaurant-per-cart via IllegalArgumentException), getCart (live price computation: unitPrice from variant or base price, addonsTotal summed from cart_item_addons, lineTotal computed fresh every call), removeCartItem (ownership check), clearCart
+- Built CartController with class-level @PreAuthorize("hasRole('CUSTOMER')")
+- Found and fixed a significant, previously-undetected security gap: @EnableMethodSecurity was never added to SecurityConfig, meaning @PreAuthorize annotations across the ENTIRE service (Restaurant, MenuItem, and now Cart controllers) were silently non-functional since they were first written -- only anyRequest().authenticated() (valid-token check) was actually enforced, not role checks
+- Verified fix via direct positive test: CUSTOMER token correctly rejected with 403 on a CUSTOMER-only-blocked... [RESTAURANT_OWNER]-only cart endpoint, confirming @PreAuthorize now actually fires
+
+**Decisions made:** 
+- Kept IllegalArgumentException (400) rather than IllegalStateException (409) for the cross-restaurant-cart conflict case -- functionally fine, GlobalExceptionHandler already covers it, just less precise HTTP semantics than ideal
+- Test scripts now explicitly verify prerequisite state (e.g. menu item count) before proceeding, and auto-create missing prerequisites, rather than assuming stale session variables are valid -- PowerShell variables don't persist across terminal sessions, root-caused several earlier false failures
+
+**Blockers/issues:** 
+- The @EnableMethodSecurity gap likely means any authenticated user (regardless of role) could have created/updated restaurants and menu items in every session since RestaurantController was built -- retroactively fixed now, but worth remembering as a class of bug: annotations that require separate explicit enabling can silently no-op with no startup error
+
+**Next session starts with:** 
+- Re-verify @PreAuthorize enforcement specifically on RestaurantController and MenuItemController (wrong-role tests), not just Cart
+- OrderService -- checkout flow, cart-to-order snapshot, Saga orchestration begins
