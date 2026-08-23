@@ -1,5 +1,6 @@
 package com.quickbite.restaurant_order_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -11,4 +12,7 @@ public class ItemAddonResponse {
     private UUID id;
     private String name;
     private BigDecimal price;
+    
+    @JsonProperty("isAvailable")
+    private boolean isAvailable;
 }

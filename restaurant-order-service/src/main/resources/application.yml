@@ -21,3 +21,7 @@ server:
 jwt:
   secret: ${JWT_SECRET}
   expiration-ms: 86400000
+  
+order:
+  tax-rate: 0.05
+  delivery-fee: 30.00

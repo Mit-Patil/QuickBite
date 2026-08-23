@@ -17,4 +17,5 @@ public class CartItemResponse {
     private BigDecimal addonsTotal;
     private Integer quantity;
     private BigDecimal lineTotal;
+    private String specialInstructions;
 }

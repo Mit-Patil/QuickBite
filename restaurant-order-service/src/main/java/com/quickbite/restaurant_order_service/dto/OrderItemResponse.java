@@ -15,4 +15,5 @@ public class OrderItemResponse {
     private List<OrderItemAddonResponse> addons;
     private BigDecimal addonsTotal;
     private BigDecimal lineTotal;
+    private String specialInstructions;
 }

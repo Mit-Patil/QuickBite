@@ -30,7 +30,10 @@ public class OrderItem {
 
     @Column(nullable = false)
     private Integer quantity;
-
+    
+    @Column(name = "special_instructions")
+    private String specialInstructions;
+    
     @Column(name = "unit_price", nullable = false, precision = 10, scale = 2)
     private BigDecimal unitPrice;
 

@@ -17,8 +17,8 @@ public class ItemAddon {
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "menu_item_id", nullable = false)
-    private MenuItem menuItem;
+    @JoinColumn(name = "restaurant_id", nullable = false)
+    private Restaurant restaurant;
 
     @Column(nullable = false)
     private String name;
@@ -26,6 +26,10 @@ public class ItemAddon {
     @Column(nullable = false, precision = 10, scale = 2)
     @Builder.Default
     private BigDecimal price = BigDecimal.ZERO;
+    
+    @Column(name = "is_available", nullable = false)
+    @Builder.Default
+    private boolean isAvailable = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

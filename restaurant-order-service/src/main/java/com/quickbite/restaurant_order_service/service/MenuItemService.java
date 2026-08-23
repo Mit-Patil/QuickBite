@@ -1,5 +1,6 @@
 package com.quickbite.restaurant_order_service.service;
 
+import com.quickbite.restaurant_order_service.dto.AttachAddonRequest;
 import com.quickbite.restaurant_order_service.dto.CreateItemAddonRequest;
 import com.quickbite.restaurant_order_service.dto.CreateItemVariantRequest;
 import com.quickbite.restaurant_order_service.dto.CreateMenuItemRequest;
@@ -10,11 +11,15 @@ import com.quickbite.restaurant_order_service.dto.UpdateMenuItemRequest;
 import com.quickbite.restaurant_order_service.entity.ItemAddon;
 import com.quickbite.restaurant_order_service.entity.ItemVariant;
 import com.quickbite.restaurant_order_service.entity.MenuItem;
+import com.quickbite.restaurant_order_service.entity.MenuItemAddon;
+import com.quickbite.restaurant_order_service.entity.MenuItemAddonId;
 import com.quickbite.restaurant_order_service.entity.Restaurant;
 import com.quickbite.restaurant_order_service.repository.ItemAddonRepository;
 import com.quickbite.restaurant_order_service.repository.ItemVariantRepository;
+import com.quickbite.restaurant_order_service.repository.MenuItemAddonRepository;
 import com.quickbite.restaurant_order_service.repository.MenuItemRepository;
 import com.quickbite.restaurant_order_service.repository.RestaurantRepository;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -30,6 +35,7 @@ public class MenuItemService {
     private final RestaurantRepository restaurantRepository;
     private final ItemVariantRepository itemVariantRepository;
     private final ItemAddonRepository itemAddonRepository;
+    private final MenuItemAddonRepository menuItemAddonRepository;
     
     
     public MenuItemResponse createMenuItem(UUID restuarantId, UUID ownerId, CreateMenuItemRequest request){
@@ -121,18 +127,18 @@ public class MenuItemService {
                 .build();
     }
 
-    public ItemAddonResponse addAddon(UUID menuItemId, UUID ownerId, CreateItemAddonRequest request) {
-        MenuItem item = menuItemRepository.findById(menuItemId)
-                .orElseThrow(() -> new IllegalArgumentException("Menu item not found"));
+    public ItemAddonResponse createAddon(UUID restaurantId, UUID ownerId, CreateItemAddonRequest request) {
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found"));
 
-        if (!item.getRestaurant().getOwnerId().equals(ownerId)) {
-            throw new IllegalArgumentException("You do not own this menu item");
+        if (!restaurant.getOwnerId().equals(ownerId)) {
+            throw new IllegalArgumentException("You do not own this restaurant");
         }
 
         ItemAddon addon = ItemAddon.builder()
-                .menuItem(item)
+                .restaurant(restaurant)
                 .name(request.getName())
-                .price(request.getPrice() != null ? request.getPrice() : java.math.BigDecimal.ZERO)
+                .price(request.getPrice() != null ? request.getPrice() : BigDecimal.ZERO)
                 .build();
 
         ItemAddon saved = itemAddonRepository.save(addon);
@@ -140,7 +146,32 @@ public class MenuItemService {
                 .id(saved.getId())
                 .name(saved.getName())
                 .price(saved.getPrice())
+                .isAvailable(saved.isAvailable())
                 .build();
+    }
+
+    public void attachAddon(UUID menuItemId, UUID ownerId, AttachAddonRequest request) {
+        MenuItem item = menuItemRepository.findById(menuItemId)
+                .orElseThrow(() -> new IllegalArgumentException("Menu item not found"));
+
+        if (!item.getRestaurant().getOwnerId().equals(ownerId)) {
+            throw new IllegalArgumentException("You do not own this menu item");
+        }
+
+        ItemAddon addon = itemAddonRepository.findById(request.getAddonId())
+                .orElseThrow(() -> new IllegalArgumentException("Addon not found"));
+
+        if (!addon.getRestaurant().getId().equals(item.getRestaurant().getId())) {
+            throw new IllegalArgumentException("This addon does not belong to this restaurant");
+        }
+
+        MenuItemAddonId id = new MenuItemAddonId(item.getId(), addon.getId());
+        MenuItemAddon link = MenuItemAddon.builder()
+                .id(id)
+                .menuItem(item)
+                .itemAddon(addon)
+                .build();
+        menuItemAddonRepository.save(link);
     }
 
     private MenuItemResponse toResponse(MenuItem item) {
@@ -151,12 +182,15 @@ public class MenuItemService {
                         .build())
                 .collect(Collectors.toList());
 
-        List<ItemAddonResponse> addons = itemAddonRepository.findByMenuItemId(item.getId())
-                .stream()
-                .map(a -> ItemAddonResponse.builder()
-                        .id(a.getId()).name(a.getName()).price(a.getPrice())
-                        .build())
-                .collect(Collectors.toList());
+            List<ItemAddonResponse> addons = menuItemAddonRepository.findByIdMenuItemId(item.getId())
+                    .stream()
+                    .map(link -> {
+                        ItemAddon a = link.getItemAddon();
+                        return ItemAddonResponse.builder()
+                                .id(a.getId()).name(a.getName()).price(a.getPrice()).isAvailable(a.isAvailable())
+                                .build();
+                    })
+                    .collect(Collectors.toList());
 
             return MenuItemResponse.builder()
                     .id(item.getId())

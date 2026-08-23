@@ -49,11 +49,19 @@ public class MenuItemController {
         return ResponseEntity.status(HttpStatus.CREATED).body(menuItemService.addVariant(id, ownerId, request));
     }
 
+    @PostMapping("/api/restaurants/{restaurantId}/addons")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<ItemAddonResponse> createAddon(@PathVariable UUID restaurantId, @Valid @RequestBody CreateItemAddonRequest request) {
+        UUID ownerId = getCurrentUserId();
+        return ResponseEntity.status(HttpStatus.CREATED).body(menuItemService.createAddon(restaurantId, ownerId, request));
+    }
+
     @PostMapping("/api/menu-items/{id}/addons")
     @PreAuthorize("hasRole('RESTAURANT_OWNER')")
-    public ResponseEntity<ItemAddonResponse> addAddon(@PathVariable UUID id, @Valid @RequestBody CreateItemAddonRequest request) {
+    public ResponseEntity<Void> attachAddon(@PathVariable UUID id, @Valid @RequestBody AttachAddonRequest request) {
         UUID ownerId = getCurrentUserId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(menuItemService.addAddon(id, ownerId, request));
+        menuItemService.attachAddon(id, ownerId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).build();
     }
 
     private UUID getCurrentUserId() {

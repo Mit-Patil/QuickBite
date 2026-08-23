@@ -7,6 +7,6 @@ import com.quickbite.restaurant_order_service.entity.ItemAddon;
 
 public interface ItemAddonRepository extends JpaRepository<ItemAddon, UUID> {
     
-    List<ItemAddon> findByMenuItemId(UUID menuItemId);
+    List<ItemAddon> findByRestaurantId(UUID menuItemId);
     
 }

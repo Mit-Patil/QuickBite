@@ -63,6 +63,7 @@ public class CartService {
                 .menuItem(menuItem)
                 .variant(variant)
                 .quantity(request.getQuantity())
+                .specialInstructions(request.getSpecialInstructions())
                 .build();
         cartItem = cartItemRepository.save(cartItem);
         
@@ -153,6 +154,7 @@ public class CartService {
                 .selectedAddonNames(addonNames)
                 .addonsTotal(addonsTotal)
                 .quantity(item.getQuantity())
+                .specialInstructions(item.getSpecialInstructions())
                 .lineTotal(lineTotal)
                 .build();
     }

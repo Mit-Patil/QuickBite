@@ -29,6 +29,9 @@ public class CartItem {
     @Column(nullable = false)
     @Builder.Default
     private Integer quantity = 1;
+    
+    @Column(name = "special_instructions")
+    private String specialInstructions;
 
     @Column(name = "added_at", nullable = false, updatable = false)
     @Builder.Default
