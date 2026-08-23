@@ -288,3 +288,25 @@
 **Next session starts with:** 
 - Re-verify @PreAuthorize enforcement specifically on RestaurantController and MenuItemController (wrong-role tests), not just Cart
 - OrderService -- checkout flow, cart-to-order snapshot, Saga orchestration begins
+
+## Session 16 — 2026-08-23
+**Worked on:** 
+- Refactored item_addons from menu-item-scoped to restaurant-scoped, added menu_item_addons join table for true addon reuse across items (V4 migration, dropped+recreated affected tables since only test data existed)
+- Added special_instructions free-text field to cart_items and order_items, separate from structured addons
+- Updated entities (ItemAddon, new MenuItemAddonId/MenuItemAddon composite-key pair), repositories, DTOs, and all three services (MenuItemService split addAddon into createAddon + attachAddon; CartService and OrderService pass specialInstructions through)
+- Found and fixed a real Hibernate bug in OrderService.placeOrder(): TransientPropertyValueException caused by querying CartItemAddon mid-loop, interleaved with unrelated writes (menu_items stock updates) within the same @Transactional block -- fixed by pre-fetching all cart item addon links into a Map before any writes begin
+- Full end-to-end verification: registration -> login -> restaurant -> restaurant-level addons -> menu items -> addon attachment (confirmed same addon ID reused across two different menu items) -> variant -> cart with special instructions -> order placement -> stock decrement -> cart clear -> order history/get-by-id
+- Verified out-of-stock rejection correctly returns 409 via the validation-first design
+
+**Decisions made:** 
+- Addon design settled on restaurant-level pool + explicit per-item attachment (not "suggested vs full list" two-tier system) -- owner attaches whichever addons apply per item, matches real Swiggy/Zomato behavior without extra complexity
+- No stock/quantity tracking added to addons or variants, consistent with the is_available-over-numeric-counting philosophy already applied to menu items
+
+**Blockers/issues:** 
+- Unresolved: DELETE /api/cart (clearCart) returns 403 Forbidden with a token that successfully authenticates GET /api/cart moments later, under the same class-level @PreAuthorize. Real inconsistency, not yet root-caused -- worth checking for a routing ambiguity between the two @DeleteMapping methods in CartController (clearCart vs removeItem) first thing next session. Workaround used this session: direct SQL DELETE in pgAdmin to clear test cart state.
+- Missing businessName field caused a silent registration failure earlier in the session -- reinforced the value of surfacing real error bodies (GetResponseStream/StreamReader pattern) instead of letting try/catch swallow details
+
+**Next session starts with:** 
+- Root-cause and fix the DELETE /api/cart 403 issue
+- Once resolved, re-verify full cart-clear flow
+- Begin payment-service (Node.js + MongoDB) -- first non-Java, non-Postgres service in the project
