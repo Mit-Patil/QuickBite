@@ -330,3 +330,25 @@
 - Full regression pass across all four controllers (Restaurant, MenuItem, Cart, Order) now that Session 16-17's addon refactor and bug fixes are stable
 - Begin payment-service (Node.js + MongoDB) -- first non-Java, non-Postgres service in the project
 
+## Session 18 — 2026-08-24 (cont.)
+**Worked on:** 
+- Added MongoDB (mongo:7) to docker-compose.yml, separate container from Postgres, per DB-per-service and polyglot persistence design from the original architecture doc
+- Fixed Windows PowerShell execution policy blocking npm (Set-ExecutionPolicy RemoteSigned, CurrentUser scope)
+- Scaffolded payment-service: npm init, installed express/mongoose/dotenv/jsonwebtoken/cors, dev dependency nodemon
+- Built folder structure (models/routes/controllers/middleware/config), centralized config (config/env.js) and centralized error-handling middleware (middleware/errorHandler.js) -- deliberately mirroring the "one place for config, one place for errors" pattern already established in restaurant-order-service's application.yml + GlobalExceptionHandler
+- Verified MongoDB connection via terminal (docker exec + mongosh) and via app health check endpoint
+- Designed and built the Payment Mongoose model: orderId/customerId/restaurantId as plain strings (no native UUID type in MongoDB, same cross-service reasoning as Postgres FK-less owner_id), method enum (CARD/UPI/COD/WALLET), status enum (PENDING/SUCCESS/FAILED/REFUNDED), timestamps: true replacing manual @PrePersist/@PreUpdate equivalent
+- Began payment controller logic: simulateCharge() function -- COD always succeeds instantly, other methods simulate ~90% success rate with a generated transactionRef, designed so a real Razorpay integration can later replace just this one function without touching schema, Saga logic, or frontend contract
+
+**Decisions made:** 
+- MongoDB stays local via Docker for now, not Atlas -- consistent with Postgres also being local, and matches the project's staged infra path (Docker Compose -> K8s -> cloud) from the original architecture doc; swapping to Atlas later is a one-line MONGO_URI change given config is centralized
+- Payment-service scoped to customer-pays-for-order only, NOT delivery-partner payouts -- different transaction type/timing/trigger, deferred until delivery-matching-service exists and its actual payout needs are known
+- Dropped a currency field from the Payment schema -- project is single-currency (INR) scoped throughout, unnecessary complexity
+- Customer selects payment method at checkout (real choice, not fixed); actual charge is simulated, not a real Razorpay SDK integration, until a frontend exists to redirect through a real checkout flow
+
+**Blockers/issues:** 
+- None
+
+**Next session starts with:** 
+- Wire paymentController into an actual Express route (routes/paymentRoutes.js), add JWT validation middleware (Node equivalent of JwtAuthFilter)
+- Test payment creation end-to-end via curl/Invoke-RestMethod against the running payment-service
