@@ -310,3 +310,23 @@
 - Root-cause and fix the DELETE /api/cart 403 issue
 - Once resolved, re-verify full cart-clear flow
 - Begin payment-service (Node.js + MongoDB) -- first non-Java, non-Postgres service in the project
+
+## Session 17 — 2026-08-24
+**Worked on:** 
+- Root-caused the DELETE /api/cart 403 mystery from Session 16 using Spring Security debug logging (logging.level.org.springframework.security: DEBUG)
+- Actual cause: NOT an authorization bug. CartService.clearCart() was missing @Transactional, and its derived-delete-query call (cartItemRepository.deleteByCartId) requires an explicit transaction, unlike simple save()/deleteById() which Spring Data wraps automatically. This threw a TransactionRequiredException (a real 500-class error)
+- The misleading 403 was a side-effect: after the uncaught exception, Spring internally redirects to GET /error to render the error response; since /error isn't in permitAll() and has no authenticated context for that internal redirect, Security correctly (but confusingly) rejected THAT request with 403 -- completely masking the real underlying exception from the client
+- Fixed by adding @Transactional to clearCart()
+- Verified fix with a definitive test: added a real item (confirmed via non-zero subtotal), cleared with no exception thrown, confirmed cart genuinely empty afterward via a clean 400 "Cart is empty" from getCart()
+
+**Decisions made:** 
+- Noted for future cleanup (not urgent): SecurityConfig's permitAll() patterns for /api/restaurants/* and /api/menu-items/* apply to all HTTP methods, not just GET as originally intended -- currently harmless since @PreAuthorize enforces the real restriction at the method level, but should eventually be scoped with HttpMethod.GET for clarity
+
+**Blockers/issues:** 
+- None remaining -- this session's investigation is fully closed
+- Key lesson: an HTTP status code alone (403) can be actively misleading when it results from an internal error-handling redirect rather than the original request's real failure. Security debug logging was the only way to see the true sequence of events. Also reinforced: PowerShell variables from a prior terminal session are gone in a fresh window -- always verify a variable actually holds a real value (not blank) before trusting a test result built on it, since an empty ID silently produces a "correct-looking" 400 that proves nothing
+
+**Next session starts with:** 
+- Full regression pass across all four controllers (Restaurant, MenuItem, Cart, Order) now that Session 16-17's addon refactor and bug fixes are stable
+- Begin payment-service (Node.js + MongoDB) -- first non-Java, non-Postgres service in the project
+
