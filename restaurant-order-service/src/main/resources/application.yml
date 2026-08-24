@@ -25,3 +25,7 @@ jwt:
 order:
   tax-rate: 0.05
   delivery-fee: 30.00
+
+logging:
+  level:
+    org.springframework.security: DEBUG  

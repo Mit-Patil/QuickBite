@@ -22,6 +22,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -120,10 +121,11 @@ public class CartService {
         cartItemRepository.deleteById(cartItemId);
     }
     
-    public void clearCart(UUID customerId){
+    @Transactional
+    public void clearCart(UUID customerId) {
         Cart cart = cartRepository.findByCustomerId(customerId)
-                .orElseThrow(() -> new IllegalArgumentException("Cart is Empty"));
-        
+                .orElseThrow(() -> new IllegalArgumentException("Cart is empty"));
+
         cartItemRepository.deleteByCartId(cart.getId());
         cartRepository.delete(cart);
     }
