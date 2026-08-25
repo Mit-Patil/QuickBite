@@ -4,12 +4,15 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const errorHandler = require('./middleware/errorHandler');
+const paymentRoutes = require('./routes/paymentRoutes');
 
 const app = express();
 connectDB();
 
 app.use(cors());
 app.use(express.json());
+
+app.use('/api/payments',paymentRoutes);
 
 app.get('/health', (req,res) =>{
     res.json({status: 'payment-service running'});

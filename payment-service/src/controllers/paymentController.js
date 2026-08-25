@@ -1,4 +1,4 @@
-const payment = require('../models/Payment');
+const Payment = require('../models/Payment');
 
 function simulateCharge(method, amount){
     if(method == 'COD'){
@@ -16,7 +16,9 @@ function simulateCharge(method, amount){
 
 async function createPayment(req, res, next){
     try {
-        const {orderId, customerId, restaurantId, amount, method} = req.body;
+        const {orderId, restaurantId, amount, method} = req.body;
+        const customerId = req.userId;
+
         const chargeResult = simulateCharge(method, amount);
 
         const payment = await Payment.create({
