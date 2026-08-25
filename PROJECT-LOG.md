@@ -330,6 +330,7 @@
 - Full regression pass across all four controllers (Restaurant, MenuItem, Cart, Order) now that Session 16-17's addon refactor and bug fixes are stable
 - Begin payment-service (Node.js + MongoDB) -- first non-Java, non-Postgres service in the project
 
+
 ## Session 18 — 2026-08-24 (cont.)
 **Worked on:** 
 - Added MongoDB (mongo:7) to docker-compose.yml, separate container from Postgres, per DB-per-service and polyglot persistence design from the original architecture doc
@@ -352,3 +353,21 @@
 **Next session starts with:** 
 - Wire paymentController into an actual Express route (routes/paymentRoutes.js), add JWT validation middleware (Node equivalent of JwtAuthFilter)
 - Test payment creation end-to-end via curl/Invoke-RestMethod against the running payment-service
+
+
+## Session 19 — 2026-08-25
+**Worked on:** 
+- Built JWT middleware (middleware/auth.js) for payment-service -- Node equivalent of JwtAuthFilter, verifies token signature via shared secret, attaches userId/userRole to req object (Express's equivalent of SecurityContextHolder)
+- Built paymentRoutes.js wiring authenticate middleware + createPayment controller, mounted at /api/payments
+- Fixed createPayment to pull customerId from the validated JWT (req.userId), not trust it from the request body -- same security principle as role being stripped from RegisterRequest in user-service
+- Debugged and fixed a real runtime bug: "Payment is not defined" -- missing require('../models/Payment') import in paymentController.js, a Node-specific failure mode since missing imports aren't caught at compile time (no compilation step), only surface when that code path actually executes
+- Full verification: successful UPI payment (customerId correctly sourced from JWT not client), COD instant-success with distinct reference prefix, no-token request correctly rejected 403, simulated ~10% UPI failure rate observed in a small sample run
+
+**Decisions made:** 
+- No role-middleware system built for payment-service yet, given only one role (CUSTOMER) needs access right now -- an inline check would suffice if/when a second role needs different payment-service access, rather than building Spring-style declarative role annotations in Express prematurely
+
+**Blockers/issues:** 
+- None -- clean session, one bug found and fixed quickly
+
+**Next session starts with:** 
+- Wire payment-service into restaurant-order-service's checkout flow -- this is where real Saga orchestration begins: OrderService calls payment-service after cart validation, handles SUCCESS (confirm order) vs FAILED (compensate: release any reserved stock, mark order PAYMENT_FAILED) as two separate database transactions coordinated by application logic, not one shared DB transaction
