@@ -371,3 +371,11 @@
 
 **Next session starts with:** 
 - Wire payment-service into restaurant-order-service's checkout flow -- this is where real Saga orchestration begins: OrderService calls payment-service after cart validation, handles SUCCESS (confirm order) vs FAILED (compensate: release any reserved stock, mark order PAYMENT_FAILED) as two separate database transactions coordinated by application logic, not one shared DB transaction
+
+## Session 20 — 2026-08-26
+**Worked on:** 
+- Built RestClientConfig for connecting 2 diffrent service PaymentService and OrderService Together and created PaymentRequest and PaymentResponse Dto and added Payment Method field in PlaceOrderRequest and Implemented PlaceOrder Logic for payment 
+
+
+**Next session starts with:** 
+- Complete the Payment and orderservice logic that will work together and testing all possible testcases 
