@@ -9,9 +9,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.text.NumberFormat;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.springframework.web.client.RestClient;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +26,7 @@ public class OrderService {
     private final OrderItemRepository orderItemRepository;
     private final OrderItemAddonRepository orderItemAddonRepository;
     private final MenuItemRepository menuItemRepository;
+    private final RestClient paymentServiceClient;
 
     @Value("${order.tax-rate:0.05}")
     private BigDecimal taxRate;
@@ -32,7 +35,7 @@ public class OrderService {
     private BigDecimal deliveryFee;
 
     @Transactional
-    public OrderResponse placeOrder(UUID customerId, PlaceOrderRequest request) {
+    public OrderResponse placeOrder(UUID customerId,String authToken, PlaceOrderRequest request) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Cart is empty"));
 
@@ -127,11 +130,50 @@ public class OrderService {
         order.setStatus(OrderStatus.CONFIRMED);
         order = orderRepository.save(order);
 
-        // Step 5: clear the cart
-        cartItemRepository.deleteByCartId(cart.getId());
-        cartRepository.delete(cart);
+        // Step 5 (NEW): call payment-service     
+        PaymentRequest paymentRequest = new PaymentRequest();
+        paymentRequest.setOrderId(order.getId().toString());
+        paymentRequest.setRestaurantId(order.getRestaurant().getId().toString());
+        paymentRequest.setAmount(totalAmount);
+        paymentRequest.setMethod(request.getPaymentMethod());
+        
+        PaymentResponse paymentResponse;
+        try {
+            paymentResponse = paymentServiceClient.post()
+                    .uri("/api/payments")
+                    .header("Authorization", "Bearer " + authToken)
+                    .body(paymentRequest)
+                    .retrieve()
+                    .body(PaymentResponse.class);
+        } catch (Exception e) {
+            compensateFailedPayment(order, cartItems);
+            throw new IllegalStateException("Payment could not be processed, please try again");
+        }
+        
+        
+        if ("SUCCESS".equals(paymentResponse.getStatus())) {
+                order.setStatus(OrderStatus.CONFIRMED);
+                order = orderRepository.save(order);
+                cartItemRepository.deleteByCartId(cart.getId());
+                cartRepository.delete(cart);
+            } else {
+                compensateFailedPayment(order, cartItems);
+                order.setStatus(OrderStatus.PAYMENT_FAILED);
+                order = orderRepository.save(order);
+                throw new IllegalStateException("Payment failed: " + paymentResponse.getFailureReason());
+            }
 
-        return toResponse(order);
+            return toResponse(order);
+    }
+    
+    private void compensateFailedPayment(Order order, List<CartItem> cartItems) {
+        for (CartItem cartItem : cartItems) {
+            MenuItem menuItem = cartItem.getMenuItem();
+            if (menuItem.getStockQuantity() != null) {
+                menuItem.setStockQuantity(menuItem.getStockQuantity() + cartItem.getQuantity());
+                menuItemRepository.save(menuItem);
+            }
+        }
     }
 
     public List<OrderResponse> getMyOrders(UUID customerId) {

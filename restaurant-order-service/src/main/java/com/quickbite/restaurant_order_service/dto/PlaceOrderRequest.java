@@ -1,5 +1,6 @@
 package com.quickbite.restaurant_order_service.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.util.UUID;
@@ -8,4 +9,7 @@ import java.util.UUID;
 public class PlaceOrderRequest {
     @NotNull(message = "Delivery address is required")
     private UUID deliveryAddressId;
+    
+    @NotBlank(message = "Payment method is required")
+    private String paymentMethod;
 }
