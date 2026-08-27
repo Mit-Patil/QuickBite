@@ -379,3 +379,26 @@
 
 **Next session starts with:** 
 - Complete the Payment and orderservice logic that will work together and testing all possible testcases 
+
+
+## Session 20 — 2026-08-27
+**Worked on:** 
+- Wired the order-to-payment Saga call in OrderService.placeOrder(): PaymentRequest/PaymentResponse DTOs, RestClient bean (payment-service base URL, connect/read timeouts), try/catch around the cross-service call with compensateFailedPayment() restoring decremented stock on failure
+- Threaded the customer's JWT from OrderController through to the payment-service call via @RequestHeader
+- Fixed RestClientConfig compile errors by switching to JdkClientHttpRequestFactory wrapping java.net.http.HttpClient -- more version-stable than Spring Boot's shifting internal class names
+- Diagnosed and fixed a double "Bearer" prefix bug: OrderService's payment call was doing "Bearer " + authToken, but authToken (from @RequestHeader) already contained the full "Bearer ..." string, producing "Bearer Bearer eyJ..." and failing JWT verification on every attempt. Root-caused via systematic diagnostic logging added across all three services (payment-service request logger, auth.js token/secret preview) that isolated the exact malformed header value
+- Verified full end-to-end Saga flow: cart -> order validation -> snapshot -> stock decrement -> payment-service call -> CONFIRMED status -> correct subtotal/tax/total calculation
+- Confirmed compensation logic (stock restoration on payment failure) works correctly, verified independently before the header bug was found
+
+**Decisions made:** 
+- None new this session -- primarily debugging and verification of previously-designed Saga logic
+
+**Blockers/issues:** 
+- None remaining -- full order-to-payment flow confirmed working
+- Noted for next session (cosmetic, not urgent): taxAmount/totalAmount display with 4 decimal places (e.g. 25.0000) due to BigDecimal.multiply() combining decimal scales rather than rounding -- values are correct, just need .setScale(2, RoundingMode.HALF_UP) before saving for clean display
+
+**Next session starts with:** 
+- Apply .setScale(2, RoundingMode.HALF_UP) to taxAmount/totalAmount calculation in OrderService
+- Remove/quiet verbose debug logging added this session (JWT secret/token previews, request loggers) now that the bug is fixed -- useful for diagnosis, too noisy for normal operation
+- Run a full regression pass across Restaurant/MenuItem/Cart/Order/Payment together, including a genuine simulated-failure case now that success is confirmed
+- Then: frontend planning, per the earlier agreed sequencing (finish backend core + Saga first, frontend next, especially given the exam-timing plan)
