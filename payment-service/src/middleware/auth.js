@@ -16,7 +16,10 @@ function authenticate(req, res, next){
         req.userRole = decoded.role;
         next();
     } catch (err) {
-        return res.status(403).json({ error : 'invalid or expired token'});
+        console.error('JWT verification failed:', err.name, '-', err.message);
+        console.error('Token received (first 30 chars):', token.substring(0, 30));
+        console.error('Secret being used (first 15 chars):', env.jwtSecret ? env.jwtSecret.substring(0, 15) : 'UNDEFINED');
+        return res.status(403).json({ error: 'Invalid or expired token' });
     }
 }
 

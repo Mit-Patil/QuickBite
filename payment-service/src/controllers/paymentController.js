@@ -19,7 +19,11 @@ async function createPayment(req, res, next){
         const {orderId, restaurantId, amount, method} = req.body;
         const customerId = req.userId;
 
+        console.log('Payment request body:', req.body, 'customerId:', customerId);
+
         const chargeResult = simulateCharge(method, amount);
+        console.log('Charge result:', chargeResult);
+
 
         const payment = await Payment.create({
             orderId,
@@ -32,8 +36,10 @@ async function createPayment(req, res, next){
             failureReason: chargeResult.failureReason
         });
 
+        console.log('Payment saved:', payment.status);
         res.status(201).json(payment);
     } catch (err) {
+        console.error('createPayment error:', err.message);
         next(err);
     }
 }

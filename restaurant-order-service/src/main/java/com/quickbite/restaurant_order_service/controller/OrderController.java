@@ -21,9 +21,11 @@ public class OrderController {
     private final OrderService orderService;
 
     @PostMapping
-    public ResponseEntity<OrderResponse> placeOrder(@Valid @RequestBody PlaceOrderRequest request) {
+    public ResponseEntity<OrderResponse> placeOrder(
+            @RequestHeader("Authorization") String authHeader,
+            @Valid @RequestBody PlaceOrderRequest request) {
         UUID customerId = getCurrentUserId();
-        return ResponseEntity.status(HttpStatus.CREATED).body(orderService.placeOrder(customerId, request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(orderService.placeOrder(customerId, authHeader, request));
     }
 
     @GetMapping

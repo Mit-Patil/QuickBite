@@ -9,7 +9,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
-import java.text.NumberFormat;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -127,7 +126,6 @@ public class OrderService {
         order.setSubtotal(subtotal);
         order.setTaxAmount(taxAmount);
         order.setTotalAmount(totalAmount);
-        order.setStatus(OrderStatus.CONFIRMED);
         order = orderRepository.save(order);
 
         // Step 5 (NEW): call payment-service     
@@ -141,7 +139,7 @@ public class OrderService {
         try {
             paymentResponse = paymentServiceClient.post()
                     .uri("/api/payments")
-                    .header("Authorization", "Bearer " + authToken)
+                    .header("Authorization", authToken)
                     .body(paymentRequest)
                     .retrieve()
                     .body(PaymentResponse.class);
