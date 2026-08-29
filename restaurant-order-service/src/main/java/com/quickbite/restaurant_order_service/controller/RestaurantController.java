@@ -1,8 +1,10 @@
 package com.quickbite.restaurant_order_service.controller;
 
 import com.quickbite.restaurant_order_service.dto.CreateRestaurantRequest;
+import com.quickbite.restaurant_order_service.dto.OrderResponse;
 import com.quickbite.restaurant_order_service.dto.RestaurantResponse;
 import com.quickbite.restaurant_order_service.dto.UpdateRestaurantRequest;
+import com.quickbite.restaurant_order_service.service.OrderService;
 import com.quickbite.restaurant_order_service.service.RestaurantService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -26,7 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class RestaurantController {
     
     private final RestaurantService restaurantService;
-    
+    private final OrderService orderService;
+
     
     private UUID getCurrentUserId(){
         return (UUID) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -56,6 +59,13 @@ public class RestaurantController {
     public ResponseEntity<RestaurantResponse> update(@PathVariable UUID id, @RequestBody UpdateRestaurantRequest request){
         RestaurantResponse response = restaurantService.updateRestaurant(id, getCurrentUserId(), request);
         return ResponseEntity.ok(response);
+    }
+    
+    @GetMapping("/{restaurantId}/orders")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<List<OrderResponse>> getRestaurantOrders(@PathVariable UUID restaurantId) {
+        UUID ownerId = getCurrentUserId();
+        return ResponseEntity.ok(orderService.getOrdersForRestaurant(restaurantId, ownerId));
     }
     
 }

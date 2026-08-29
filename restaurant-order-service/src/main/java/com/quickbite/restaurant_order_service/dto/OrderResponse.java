@@ -18,5 +18,6 @@ public class OrderResponse {
     private BigDecimal taxAmount;
     private BigDecimal deliveryFee;
     private BigDecimal totalAmount;
+    private String cancellationReason;
     private LocalDateTime placedAt;
 }

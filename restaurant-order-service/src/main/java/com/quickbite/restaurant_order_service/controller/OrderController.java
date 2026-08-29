@@ -40,6 +40,20 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getById(id, customerId));
     }
 
+    @PatchMapping("/{id}/status")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<OrderResponse> updateStatus(@PathVariable UUID id, @Valid @RequestBody UpdateOrderStatusRequest request){
+        UUID ownerId = getCurrentUserId();
+        return ResponseEntity.ok(orderService.updateOrderStatus(id, ownerId, request));
+    }
+    
+    @PatchMapping("/{id}/cancel")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<OrderResponse> cancelOrder(@PathVariable UUID id, @Valid @RequestBody CancelOrderRequest request){
+        UUID ownerId = getCurrentUserId();
+        return ResponseEntity.ok(orderService.cancelOrder(id, ownerId, request));
+    }
+    
     private UUID getCurrentUserId() {
         return (UUID) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }

@@ -43,6 +43,9 @@ public class Order {
 
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
     private BigDecimal totalAmount;
+    
+    @Column(name = "cancellation_reason")
+    private String cancellationReason;
 
     @Column(name = "delivery_partner_id")
     private UUID deliveryPartnerId;

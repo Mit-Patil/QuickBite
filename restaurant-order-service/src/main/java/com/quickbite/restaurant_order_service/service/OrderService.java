@@ -9,7 +9,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.web.client.RestClient;
@@ -22,6 +24,7 @@ public class OrderService {
     private final CartItemRepository cartItemRepository;
     private final CartItemAddonRepository cartItemAddonRepository;
     private final OrderRepository orderRepository;
+    private final RestaurantRepository restaurantRepository;
     private final OrderItemRepository orderItemRepository;
     private final OrderItemAddonRepository orderItemAddonRepository;
     private final MenuItemRepository menuItemRepository;
@@ -120,8 +123,8 @@ public class OrderService {
         }
 
         // Step 4: finalize totals + status
-        BigDecimal taxAmount = subtotal.multiply(taxRate);
-        BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryFee);
+        BigDecimal taxAmount = subtotal.multiply(taxRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryFee).setScale(2, RoundingMode.HALF_UP);
 
         order.setSubtotal(subtotal);
         order.setTaxAmount(taxAmount);
@@ -191,7 +194,74 @@ public class OrderService {
 
         return toResponse(order);
     }
+    
+    public List<OrderResponse> getOrdersForRestaurant(UUID restaurantId, UUID ownerId){
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant Not Found"));
+        
+        if(!restaurant.getOwnerId().equals(ownerId)){
+            throw new IllegalArgumentException("You do not own this restaurant");
+        }
+        
+        return orderRepository.findByRestaurantIdOrderByPlacedAtDesc(restaurantId)
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+    }
+    
+    public OrderResponse updateOrderStatus(UUID orderId, UUID ownerId, UpdateOrderStatusRequest request){
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        
+        if(!order.getRestaurant().getOwnerId().equals(ownerId)){
+            throw new IllegalArgumentException("You do not own this order's restaurant");
+        }
+        
+        OrderStatus newStatus;
+        
+        try {
+            newStatus = OrderStatus.valueOf(request.getStatus().toUpperCase());
+        } catch (IllegalArgumentException e) {
+             throw new IllegalArgumentException("Invalid status: " + request.getStatus());
+        }
+        
+        validateStatusTransition(order.getStatus(), newStatus);
+        
+        order.setStatus(newStatus);
+        order = orderRepository.save(order);
+        return toResponse(order);
+    }
+    
+    private void validateStatusTransition(OrderStatus current, OrderStatus next){
+        Map<OrderStatus, List<OrderStatus>> allowedTransitions = Map.of(
+            OrderStatus.CONFIRMED, List.of(OrderStatus.PREPARING, OrderStatus.CANCELLED),
+            OrderStatus.PREPARING, List.of(OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED),
+            OrderStatus.READY_FOR_PICKUP, List.of(OrderStatus.OUT_FOR_DELIVERY),
+            OrderStatus.OUT_FOR_DELIVERY, List.of(OrderStatus.DELIVERED)
+        );
+        
+        List<OrderStatus> allowed = allowedTransitions.get(current);
+        if(allowed == null || !allowed.contains(next)){
+            throw  new IllegalStateException("Cannot transition order from " + current + " to " + next);
+        }
+    }
 
+    public OrderResponse cancelOrder(UUID orderId, UUID ownerId, CancelOrderRequest request){
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        
+        if(!order.getRestaurant().getOwnerId().equals(ownerId)){
+            throw new IllegalArgumentException("You do not own this order's restaurant");
+        }
+        
+        validateStatusTransition(order.getStatus(), OrderStatus.CANCELLED);
+        
+        order.setStatus(OrderStatus.CANCELLED);
+        order.setCancellationReason(request.getReason());
+        order = orderRepository.save(order);
+        return toResponse(order);
+    }
+    
     private OrderResponse toResponse(Order order) {
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
 
@@ -227,6 +297,7 @@ public class OrderService {
                 .taxAmount(order.getTaxAmount())
                 .deliveryFee(order.getDeliveryFee())
                 .totalAmount(order.getTotalAmount())
+                .cancellationReason(order.getCancellationReason())
                 .placedAt(order.getPlacedAt())
                 .build();
     }
