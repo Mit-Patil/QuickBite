@@ -402,3 +402,25 @@
 - Remove/quiet verbose debug logging added this session (JWT secret/token previews, request loggers) now that the bug is fixed -- useful for diagnosis, too noisy for normal operation
 - Run a full regression pass across Restaurant/MenuItem/Cart/Order/Payment together, including a genuine simulated-failure case now that success is confirmed
 - Then: frontend planning, per the earlier agreed sequencing (finish backend core + Saga first, frontend next, especially given the exam-timing plan)
+
+
+## Session 21 — 2026-08-29
+**Worked on:** 
+- Closed the two identified backend gaps for restaurant owner order management: getRestaurantOrders (moved to RestaurantController, correcting a route-nesting bug where it was originally double-prefixed under OrderController's /api/orders mapping) and updateOrderStatus with a full state-machine validation (validateStatusTransition map) preventing illegal status jumps
+- Fixed BigDecimal display formatting: taxAmount/totalAmount now use .setScale(2, RoundingMode.HALF_UP), fixing the 4-decimal-place display bug from Session 20
+- Removed verbose JWT secret/token preview debug logging from payment-service's auth.js (added during the Bearer-bug investigation), kept the basic error message log
+- Added order cancellation: V5 migration (cancellation_reason column), CancelOrderRequest DTO, OrderService.cancelOrder() reusing validateStatusTransition, new PATCH /api/orders/{id}/cancel endpoint (restaurant-owner only)
+- Full regression test: status progression (CONFIRMED -> PREPARING -> READY_FOR_PICKUP -> OUT_FOR_DELIVERY -> DELIVERED), invalid transition rejection (409), terminal-state guard, owner-only access control, cancellation with reason visible to both owner and customer, re-cancellation blocked
+
+**Decisions made:** 
+- Cancellation reason is free-text, stored on the order -- kept deliberately separate from menu_items.is_available; a cancellation does NOT automatically toggle item availability, since cancellation reasons don't always relate to item stock (wrong address, customer changed mind, etc.) -- matches the existing manual-toggle-over-automatic-inference philosophy from the addon/stock design sessions
+- Deferred: refund handling (payment-service REFUNDED status + reversal call) and double-submission/idempotency guard -- both scoped as next session's focus, deliberately not rushed at the end of this session
+- Deferred: full idempotency-key infrastructure remains out of scope pre-exams given its open-ended debugging risk (similar in kind to the multi-session Bearer-prefix bug); a narrower double-submission guard (processing flag on Cart) was scoped as a cheaper, bounded alternative for next session instead
+
+**Blockers/issues:** 
+- None this session
+
+**Next session starts with:** 
+- Double-submission guard: add a processing flag/status check on Cart, set at the start of placeOrder() inside the transaction, to prevent a second rapid order submission from double-processing the same cart during the narrow race window before cart deletion
+- Refund handling: payment-service REFUNDED status transition + reversal endpoint, called from OrderService.cancelOrder() when cancelling an order that was successfully paid
+- After both: move to frontend, per the earlier agreed sequencing
