@@ -424,3 +424,21 @@
 - Double-submission guard: add a processing flag/status check on Cart, set at the start of placeOrder() inside the transaction, to prevent a second rapid order submission from double-processing the same cart during the narrow race window before cart deletion
 - Refund handling: payment-service REFUNDED status transition + reversal endpoint, called from OrderService.cancelOrder() when cancelling an order that was successfully paid
 - After both: move to frontend, per the earlier agreed sequencing
+
+## Session 22 — 2026-08-30
+**Worked on:** 
+- Added double-submission guard: processing boolean flag on Cart entity (V6 migration), set true at the start of OrderService.placeOrder() before any validation/writes, checked first and rejected with 409 if already true, reset to false on any failure path that doesn't delete the cart. Verified via genuine concurrent requests (PowerShell background jobs) -- one succeeded, one correctly rejected with "already being processed"
+- Added refund handling: payment-service gets a new POST /api/payments/:orderId/refund endpoint (finds the SUCCESS payment for that order, transitions it to REFUNDED), protected by a new internal-service-to-service auth mechanism (X-Internal-Key header + shared secret comparison, deliberately separate and simpler than customer JWT auth since the trust model differs -- trusted peer service vs. external user)
+- Wired OrderService.cancelOrder() to call the refund endpoint when cancelling a paid order (CONFIRMED/PREPARING/READY_FOR_PICKUP), with refund failure logged but not blocking cancellation itself
+- Debugged and fixed the refund call failing with "Invalid internal service key" / undefined received key -- root cause was the header name itself: the original placeholder code sent .header("Authorization", "system") and only the header VALUE was updated to the real secret during the internal-auth implementation, never the header NAME (should have been "X-Internal-Key", matching what internalAuth.js middleware actually reads)
+- Full end-to-end verification: place order -> cancel -> refund processed and logged in payment-service, confirmed via matching debug logs on both sides
+
+**Decisions made:** 
+- Internal service auth uses a static shared secret checked via plain string comparison (X-Internal-Key header), not JWT verification -- appropriate for trusted service-to-service calls within owned infrastructure, distinct from customer-facing auth which needs real identity/role verification
+
+**Blockers/issues:** 
+- None remaining -- this closes out all three backend gaps identified two sessions ago (double-submission guard, cancellation, refund)
+
+**Next session starts with:** 
+- All planned backend work for restaurant-order-service, payment-service is complete for the scoped feature set (idempotency-key infrastructure remains explicitly deferred, documented as future work)
+- Move to frontend, per the long-agreed sequencing -- restaurant-order-service and payment-service are now stable enough to build a UI against
