@@ -29,3 +29,6 @@ order:
 logging:
   level:
     org.springframework.security: DEBUG  
+    
+internal:
+  service-secret: ${INTERNAL_SERVICE_SECRET}    

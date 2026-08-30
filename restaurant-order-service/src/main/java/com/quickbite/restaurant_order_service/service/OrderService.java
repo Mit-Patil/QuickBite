@@ -35,16 +35,28 @@ public class OrderService {
 
     @Value("${order.delivery-fee:30.00}")
     private BigDecimal deliveryFee;
+    
+    @Value("${internal.service-secret}")
+    private String internalServiceSecret;
 
     @Transactional
     public OrderResponse placeOrder(UUID customerId,String authToken, PlaceOrderRequest request) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Cart is empty"));
-
+        
+        if(cart.isProcessing()){
+            throw new IllegalStateException("Your order is already being processed, please wait");
+        }
+        
+        cart.setProcessing(true);
+        cartRepository.save(cart);
+        
         List<CartItem> cartItems = cartItemRepository.findByCartId(cart.getId());
         if (cartItems.isEmpty()) {
             throw new IllegalArgumentException("Cart is empty");
         }
+        
+        
 
         // Step 1: validate (unchanged)
         for (CartItem cartItem : cartItems) {
@@ -148,6 +160,8 @@ public class OrderService {
                     .body(PaymentResponse.class);
         } catch (Exception e) {
             compensateFailedPayment(order, cartItems);
+            cart.setProcessing(false);
+            cartRepository.save(cart);
             throw new IllegalStateException("Payment could not be processed, please try again");
         }
         
@@ -161,6 +175,8 @@ public class OrderService {
                 compensateFailedPayment(order, cartItems);
                 order.setStatus(OrderStatus.PAYMENT_FAILED);
                 order = orderRepository.save(order);
+                cart.setProcessing(false);
+                cartRepository.save(cart);
                 throw new IllegalStateException("Payment failed: " + paymentResponse.getFailureReason());
             }
 
@@ -255,6 +271,20 @@ public class OrderService {
         }
         
         validateStatusTransition(order.getStatus(), OrderStatus.CANCELLED);
+        
+        if(order.getStatus() == OrderStatus.CONFIRMED 
+                || order.getStatus() == OrderStatus.PREPARING
+                || order.getStatus() == OrderStatus.READY_FOR_PICKUP){
+            try {
+                paymentServiceClient.post()
+                        .uri("/api/payments/{orderId}/refund", order.getId())
+                        .header("X-Internal-Key", internalServiceSecret)
+                        .retrieve()
+                        .toBodilessEntity();
+            } catch (Exception e) {
+                    System.err.println("Refund failed for order " + order.getId() + ": " + e.getMessage());
+            }
+        }
         
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancellationReason(request.getReason());

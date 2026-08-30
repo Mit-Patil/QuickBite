@@ -22,6 +22,10 @@ public class Cart {
     @JoinColumn(name = "restaurant_id", nullable = false)
     private Restaurant restaurant;
 
+    @Column(name = "processing", nullable = false)
+    @Builder.Default
+    private boolean processing = false;
+    
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();

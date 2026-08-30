@@ -44,4 +44,27 @@ async function createPayment(req, res, next){
     }
 }
 
-module.exports = {createPayment};
+
+async function refundPayment(req,res,next){
+    try {
+        const {orderId} = req.params;
+
+        const payment = await Payment.findOne({orderId, status: 'SUCCESS'});
+
+        if(!payment){
+            return res.status(404).json({error: 'No Successful payment found for this order'});
+        }
+
+        payment.status = 'REFUNDED';
+        await payment.save();
+
+        console.log('Refund processed for order: ', orderId);
+        res.status(200).json(payment);
+
+    } catch (err) {
+         console.error('refundPayment error:', err.message);
+        next(err);
+    }
+}
+
+module.exports = {createPayment, refundPayment};
