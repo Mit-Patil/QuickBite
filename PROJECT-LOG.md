@@ -442,3 +442,21 @@
 **Next session starts with:** 
 - All planned backend work for restaurant-order-service, payment-service is complete for the scoped feature set (idempotency-key infrastructure remains explicitly deferred, documented as future work)
 - Move to frontend, per the long-agreed sequencing -- restaurant-order-service and payment-service are now stable enough to build a UI against
+
+## Session 23 — 2026-08-31
+**Worked on:** 
+- Implemented full idempotency handling for the order-to-payment Saga call: idempotencyKey field on Payment schema (unique index), createPayment checks for existing key before charging and returns the original result on replay (200, not 201), new GET /api/payments/status/:idempotencyKey endpoint (internal-auth protected) for reconciliation queries
+- Reworked OrderService's payment-call catch block: instead of assuming failure on any timeout/exception, it now queries payment-service for the real outcome of that specific attempt via the idempotency key, and only compensates/fails the order if the real status is confirmed FAILED or genuinely unreachable -- if reconciliation finds SUCCESS, the order is confirmed instead of incorrectly compensated
+- Used order.getId() itself as the idempotency key (already stable and unique per attempt, no separate key-generation needed)
+- Extensive, deliberate testing using a temporary artificial delay in payment-service to force real RestClient timeouts (not just simulated ones) -- proved three distinct scenarios with direct log evidence: (1) idempotent replay preventing a double charge when the underlying HTTP client auto-retried, (2) reconciliation correctly compensating when the real status was FAILED, (3) reconciliation correctly confirming the order when the real status was SUCCESS despite the client-side timeout
+- Removed temporary test-only code (artificial response delay, forced-success override) after successful verification
+
+**Decisions made:** 
+- None new this session -- pure implementation and rigorous verification of the design from Session 22
+
+**Blockers/issues:** 
+- None remaining. This closes the idempotency gap that was the last explicitly deferred backend item since Session 17/22 discussions -- all identified Saga/payment edge cases (double-submission, cancellation, refund, idempotent replay, lost-response reconciliation) are now implemented and verified with real evidence, not just assumed
+
+**Next session starts with:** 
+- Backend scope for restaurant-order-service and payment-service is now considered complete for the project's current phase
+- Move to frontend, per the long-agreed sequencing -- this was the last blocker
