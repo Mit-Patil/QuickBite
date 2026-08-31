@@ -29,6 +29,12 @@ const paymentSchema = new mongoose.Schema({
         enum: ['PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'],
         default: 'PENDING'
     },
+    idempotencyKey:{
+        type: String,
+        required: true,
+        unique: true,
+        index: true
+    },
     failureReason: {
         type: String
     },

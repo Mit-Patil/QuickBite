@@ -7,6 +7,7 @@ function simulateCharge(method, amount){
 
     const success = Math.random() > 0.1;
 
+
     return{
         status: success ? 'SUCCESS' : 'FAILED',
         transactionRef: success ? `sim_txn_${Date.now()}` : null,
@@ -16,14 +17,21 @@ function simulateCharge(method, amount){
 
 async function createPayment(req, res, next){
     try {
-        const {orderId, restaurantId, amount, method} = req.body;
+        const {orderId, restaurantId, amount, method, idempotencyKey} = req.body;
         const customerId = req.userId;
 
-        console.log('Payment request body:', req.body, 'customerId:', customerId);
+        if(!idempotencyKey){
+            return res.status(400).json({error : 'idempotencyKey is required'});
+        }
+
+        const existing = await Payment.findOne({idempotencyKey});
+        if(existing){
+            console.log('Idempotent replay detected for key: ', idempotencyKey, ' - returning existing result');
+            return res.status(200).json(existing);
+        }
+
 
         const chargeResult = simulateCharge(method, amount);
-        console.log('Charge result:', chargeResult);
-
 
         const payment = await Payment.create({
             orderId,
@@ -31,12 +39,15 @@ async function createPayment(req, res, next){
             restaurantId,
             amount,
             method,
+            idempotencyKey,
             status: chargeResult.status,
             transactionRef: chargeResult.transactionRef,
             failureReason: chargeResult.failureReason
         });
 
-        console.log('Payment saved:', payment.status);
+        console.log('Simulating slow response for testing...');
+        await new Promise(resolve => setTimeout(resolve, 15000));
+
         res.status(201).json(payment);
     } catch (err) {
         console.error('createPayment error:', err.message);
@@ -67,4 +78,19 @@ async function refundPayment(req,res,next){
     }
 }
 
-module.exports = {createPayment, refundPayment};
+async function getPaymentByKey(req,res,next){
+    try {
+        const {idempotencyKey} = req.params;
+        const payment = await Payment.findOne({idempotencyKey});
+
+        if(!payment){
+            return res.status(404).json({error: 'No payment found for this key'});
+        }
+
+        res.status(200).json(payment);
+    } catch (err) {
+        next(err);        
+    }
+}
+
+module.exports = {createPayment, refundPayment, getPaymentByKey};

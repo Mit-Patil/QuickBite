@@ -142,13 +142,16 @@ public class OrderService {
         order.setTaxAmount(taxAmount);
         order.setTotalAmount(totalAmount);
         order = orderRepository.save(order);
-
+        String idempotencyKey = order.getId().toString();
+        
+        
         // Step 5 (NEW): call payment-service     
         PaymentRequest paymentRequest = new PaymentRequest();
         paymentRequest.setOrderId(order.getId().toString());
         paymentRequest.setRestaurantId(order.getRestaurant().getId().toString());
         paymentRequest.setAmount(totalAmount);
         paymentRequest.setMethod(request.getPaymentMethod());
+        paymentRequest.setIdempotencyKey(idempotencyKey);
         
         PaymentResponse paymentResponse;
         try {
@@ -159,6 +162,31 @@ public class OrderService {
                     .retrieve()
                     .body(PaymentResponse.class);
         } catch (Exception e) {
+            
+            
+            System.err.println("Payment call failed/timed out, checking real status for key: " + idempotencyKey);
+            
+            PaymentStatusResponse actualStatus = null;
+            try {
+                actualStatus = paymentServiceClient.get()
+                        .uri("/api/payments/status/{key}", idempotencyKey)
+                        .header("X-Internal-Key", internalServiceSecret)
+                        .retrieve()
+                        .body(PaymentStatusResponse.class);
+            } catch (Exception statusCheckException) {
+                System.err.println("Status check also failed, assuming payment never succeeded: "+ statusCheckException.getMessage());
+            }
+            
+            if(actualStatus !=null && "SUCCESS".equals(actualStatus.getStatus())){
+                System.err.println("Reconciliation found payment DID succeed for key: " + idempotencyKey);
+                order.setStatus(OrderStatus.CONFIRMED);
+                order = orderRepository.save(order);
+                cartItemRepository.deleteByCartId(cart.getId());
+                cartRepository.delete(cart);
+                return toResponse(order);
+            }
+            
+            
             compensateFailedPayment(order, cartItems);
             cart.setProcessing(false);
             cartRepository.save(cart);

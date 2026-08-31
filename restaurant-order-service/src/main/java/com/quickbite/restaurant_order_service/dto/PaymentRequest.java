@@ -9,4 +9,5 @@ public class PaymentRequest {
     private String restaurantId;
     private BigDecimal amount;
     private String method;
+    private String idempotencyKey;
 }
