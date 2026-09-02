@@ -460,3 +460,31 @@
 **Next session starts with:** 
 - Backend scope for restaurant-order-service and payment-service is now considered complete for the project's current phase
 - Move to frontend, per the long-agreed sequencing -- this was the last blocker
+
+## Session 24 — 2026-09-02
+**Worked on:**
+- Scaffolded quickbite-frontend with Vite (React template), installed axios and react-router-dom, chose ESLint over Oxlint for linting
+- Built src/api/axiosClient.js — factory function creating configured axios instances per service (userClient, orderClient, paymentClient), with a request interceptor attaching JWT from localStorage and a response interceptor normalizing three inconsistent backend error shapes (string body from IllegalStateException, { error: "..." } from IllegalArgumentException, dynamic field:message pairs from validation errors) into one consistent { message, status, raw } object, plus centralized console logging per failed request
+- Built src/api/userService.js — thin per-endpoint wrapper functions around userClient (register/login/getMe), returning promises un-awaited so error/loading handling stays in components
+- Built src/auth/AuthContext.jsx (login/logout, user state backed by localStorage) and src/auth/ProtectedRoute.jsx (role-gated route guard using useAuth + Navigate)
+- Wired src/main.jsx (BrowserRouter > AuthProvider > App) and src/App.jsx (routes for /login, /customer/*, /restaurant/*, root redirect to /login)
+- Built placeholder pages: Login.jsx (full working form wired to AuthContext.login, role-based redirect on success, loading-disabled submit button), CustomerHome.jsx, RestaurantDashboard.jsx (stubs)
+- Fixed CORS: added CorsConfigurationSource bean to SecurityConfig in user-service and restaurant-order-service (allowed origin http://localhost:5173, credentials true), added cors middleware to payment-service's Express app
+- Extracted reusable ErrorMessage component (src/components/ErrorMessage.jsx + .module.css) and started src/styles/tokens.css (--color-danger, --color-danger-bg) imported into global.css, replacing Login's inline error styling
+- Verified end-to-end: login works fully (form -> userService -> axiosClient -> AuthContext -> localStorage -> role-based redirect), landing on Customer Home / Restaurant Dashboard correctly per role
+
+**Decisions made:**
+- Frontend built skeleton-first, unstyled, before any CSS polish — same layer-by-layer sequencing as the backend build
+- Skipped decoding JWT client-side for role info — /login already returns { token, email, role } directly, so decoding would be pure duplication
+- AuthContext.login() left uncaught internally (no try/catch) so the calling component owns error display, same separation-of-concerns pattern as userService.js
+- ProtectedRoute explicitly treated as UX-only, not real security — actual enforcement remains server-side via @PreAuthorize
+- Root path "/" currently hard-redirects to /login unconditionally (placeholder); revisit once a real "already logged in" check is worth adding
+- Established tokens.css (raw design values) vs component CSS Modules (applied styling) split as the project's CSS convention going forward
+
+**Blockers/issues:**
+- CORS was not configured on any of the three backend services — frontend requests were blocked by the browser at the preflight stage; fixed today (root-cause note: response.data is undefined for CORS-blocked requests, so the axios error interceptor's generic fallback message fires instead of a real backend error — a useful signal for future CORS-vs-real-bug triage)
+
+**Next session starts with:**
+- Build Register pages (Customer, Restaurant-owner, Delivery-partner) reusing ErrorMessage + a form-input pattern
+- Consider a shared Input/Button component once Register forms make the duplication concrete
+- Continue expanding tokens.css as new components need shared values
