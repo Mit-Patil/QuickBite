@@ -1,4 +1,3 @@
-// src/api/userService.js
 import { userClient } from './axiosClient';
 
 export function registerCustomer(data) {

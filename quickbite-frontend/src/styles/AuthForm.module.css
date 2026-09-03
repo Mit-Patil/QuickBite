@@ -1,0 +1,19 @@
+.wrapper{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    padding: 16px;
+}
+
+.form{
+    width: 100%;
+    max-width: 400px;
+}
+
+@media (max-width:600px)
+{
+    .form{
+        max-width: 100%;
+    }   
+}

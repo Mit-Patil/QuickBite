@@ -1,0 +1,17 @@
+.field{
+    margin-bottom: 12px;
+    display: flex;
+    flex-direction: column;
+}
+
+.label{
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.input{
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}

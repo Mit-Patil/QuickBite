@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import ErrorMessage from '../components/ErrorMessage';
+import Input from "../components/Input";
+import styles from '../styles/AuthForm.module.css';
 
 function Login(){
     const [email,setEmail] = useState('');
@@ -32,31 +34,38 @@ function Login(){
     }
 
     return (
-        <form onSubmit={handleSubmit}>
-            <h1>Login</h1>
+        <div className={styles.wrapper}>
+            <form onSubmit={handleSubmit} className={styles.form}>
+                <h1>Login</h1>
 
-            <ErrorMessage message={error}/>
+                <ErrorMessage message={error}/>
 
-            <input 
-                type="email"
-                placeholder="Enter Your Email"
-                value={email}
-                onChange={(e)=> setEmail(e.target.value)}
-                required
-            />
+                <Input
+                    label="Email"
+                    name="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                />
 
-            <input 
-                type="password"
-                placeholder="Enter Password"
-                value = {password}
-                onChange={(e) => setPassword(e.target.value)}
-                required    
-            />
+                <Input
+                    label="Password"
+                    name="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                />
 
-            <button type="submit" disabled = {loading}>
-                {loading ? 'Logging in ..' : 'Login'}
-            </button>
-        </form>
+                <button type="submit" disabled = {loading}>
+                    {loading ? 'Logging in ..' : 'Login'}
+                </button>
+
+                <p>Don't have an account? <Link to="/register/customer">Register</Link></p>
+                <p>Own a restaurant? <Link to="/register/restaurant">Register here</Link></p>
+            </form>
+        </div>
     );
 
 }
