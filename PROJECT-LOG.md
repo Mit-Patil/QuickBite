@@ -488,3 +488,27 @@
 - Build Register pages (Customer, Restaurant-owner, Delivery-partner) reusing ErrorMessage + a form-input pattern
 - Consider a shared Input/Button component once Register forms make the duplication concrete
 - Continue expanding tokens.css as new components need shared values
+
+## Session 25 — 2026-09-03
+**Worked on:**
+- Built src/components/Input.jsx + Input.module.css — reusable labeled input (label+htmlFor/id linkage for accessibility), controlled component pattern (value/onChange from parent), default type="text"
+- Added --breakpoint-mobile token to tokens.css; created shared src/styles/AuthForm.module.css (wrapper/form layout with 400px max-width, mobile full-width via @media max-width:600px), extracted out of Login so all auth-style forms share one layout file
+- Refactored Login.jsx to use Input + ErrorMessage + AuthForm.module.css instead of raw inline-styled inputs
+- Built CustomerRegister.jsx (full Name/email/phone/password form, calls registerCustomer, redirects to /login on success) and RestaurantOwnerRegister.jsx (same pattern + businessName field, calls registerRestaurantOwner) — both under new src/pages/customer/ and src/pages/restaurant/ folders
+- Wired /register/customer and /register/restaurant routes in App.jsx (public, no ProtectedRoute), added cross-links between Login and both Register pages via react-router-dom's Link
+- Debugged and fixed a real bug in CustomerRegister: typo e.prevnetDefault() (missing 'e' in preventDefault) caused the handler to throw immediately, so no code after it ran — browser fell back to native form submission, appending all field values as a URL query string with no network request sent and no visible console error (masked by the near-simultaneous page navigation)
+- Verified full end-to-end for both roles: registration -> correct row in role-specific profile table -> login -> role-based redirect (/customer, /restaurant); also verified backend validation errors (e.g. short password) surface correctly through the axios interceptor's field-error normalization into ErrorMessage
+
+**Decisions made:**
+- Registration forms deliberately stay minimal (email/password/name/phone + businessName for restaurant owners only) — gender/DOB/profile pics/addresses are explicitly post-registration, "complete your profile" concerns, matching the existing backend design decision from Session 6, not a gap to fill
+- After successful registration, redirect to /login rather than auto-login — keeps register and login as two separate, single-responsibility flows instead of duplicating token-storage/redirect logic in two places
+- Did not build a shared generic RegisterForm component for Customer vs Restaurant-owner — only one field differs between them, so further abstraction was judged not worth the added complexity; reuse boundary set at Input/ErrorMessage/AuthForm.module.css (shared UI+behavior), not full page composition
+- Committed to a light, deliberate mobile-responsiveness approach project-wide: one shared breakpoint value documented in tokens.css, applied only where it matters (auth form width today), not a media query in every component
+
+**Blockers/issues:**
+- None remaining — one real bug found (prevnetDefault typo) and fixed; useful general lesson reinforced: a form that silently does nothing and shows a query-string URL almost always means preventDefault() didn't run, and "no visible console error" is worth a second, closer look rather than trusting at a glance
+
+**Next session starts with:**
+- Delivery-partner Register page (same pattern as Restaurant-owner, swap businessName for vehicleType/vehicleNumber)
+- Consider a shared Button component now that 3+ forms will share the same submit-button pattern (disabled-while-loading text swap)
+- Continue toward Customer-facing restaurant browsing/menu pages once all three registration flows exist
