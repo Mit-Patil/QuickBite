@@ -512,3 +512,26 @@
 - Delivery-partner Register page (same pattern as Restaurant-owner, swap businessName for vehicleType/vehicleNumber)
 - Consider a shared Button component now that 3+ forms will share the same submit-button pattern (disabled-while-loading text swap)
 - Continue toward Customer-facing restaurant browsing/menu pages once all three registration flows exist
+
+
+## Session 26 — 2026-09-04
+**Worked on:**
+- Built src/components/Button.jsx + Button.module.css — shared submit button with loading-state text swap and disabled styling; refactored Login, CustomerRegister, RestaurantOwnerRegister to use it (pure refactor, no behavior change)
+- Built src/pages/delivery/DeliveryPartnerRegister.jsx (fullName/email/phone/password + vehicleType/vehicleNumber, calls registerDeliveryPartner) using the same Input/Button/ErrorMessage/AuthForm.module.css pattern as Customer and Restaurant-owner Register
+- Built src/pages/delivery/DeliveryHome.jsx placeholder, wired /delivery/* protected route (DELIVERY_PARTNER role) in App.jsx
+- Closed a redirect gap in Login.jsx: added the missing DELIVERY_PARTNER branch to the post-login role-based navigate() logic (previously only handled CUSTOMER/RESTAURANT_OWNER)
+- Verified full end-to-end for Delivery Partner: registration -> correct users + delivery_partner_profile rows -> login -> redirect to /delivery -> "Delivery Partner Home" renders
+- Confirmed all three registration flows (Customer, Restaurant-owner, Delivery-partner) are complete and working end-to-end on the shared reusable form foundation
+
+**Decisions made:**
+- All three Register pages deliberately kept as separate, near-identical page files rather than unified into one generic RegisterForm component -- confirmed again at 3 instances that the remaining duplication (field lists, which API function to call) isn't worth abstracting away at this scale
+- Address management, gender/DOB, and profile-pic completion explicitly deferred to a dedicated future session rather than folded into today's wrap-up -- these are genuinely separate features (full CRUD, later reused at checkout) not a registration gap, consistent with the original Session 6 backend design decision
+- ADMIN role intentionally left unhandled in Login's redirect logic -- no admin registration flow or pages exist yet, nothing to redirect to
+
+**Blockers/issues:**
+- None this session
+
+**Next session starts with:**
+- Build Address management page for customers (add/list/edit/delete, set-default) against the existing /me/addresses endpoints
+- Consider a shared profile-completion form pattern (gender/DOB for customer, vehicle info for delivery partner, business info for restaurant owner) -- all three already have working PUT endpoints, none have frontend UI yet
+- After that: begin customer-facing restaurant browsing/menu pages, the first real "app" screens beyond auth
