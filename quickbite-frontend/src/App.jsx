@@ -6,6 +6,8 @@ import CustomerHome from './pages/customer/CustomerHome';
 import RestaurantDashboard from './pages/restaurant-owner/RestaurantDashboard';
 import CustomerRegister from './pages/customer/CustomerRegister';
 import RestaurantOwnerRegister from './pages/restaurant-owner/RestaurantOwnerRegister';
+import DeliveryPartnerRegister from './pages/delivery/DeliveryPartnerRegister';
+import DeliveryHome from './pages/delivery/DeliveryHome';
 
 function App() {
   return (
@@ -15,7 +17,8 @@ function App() {
 
       <Route path="/register/customer" element={<CustomerRegister />} />
       <Route path="/register/restaurant" element={<RestaurantOwnerRegister />} />
-      
+      <Route path="/register/delivery-partner" element={ <DeliveryPartnerRegister /> } />
+
       <Route
         path="/customer/*"
         element={
@@ -33,6 +36,16 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      <Route 
+        path = "/delivery/*"
+        element={
+          <ProtectedRoute allowedRoles={['DELIVERY_PARTNER']}>
+            <DeliveryHome />
+          </ProtectedRoute>
+        }
+      />
+      
     </Routes>
   );
 }

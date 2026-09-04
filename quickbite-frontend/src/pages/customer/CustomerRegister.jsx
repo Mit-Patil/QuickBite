@@ -4,6 +4,7 @@ import { registerCustomer } from "../../api/userService";
 import Input from "../../components/Input";
 import ErrorMessage from "../../components/ErrorMessage";
 import styles from '../../styles/AuthForm.module.css';
+import Button from "../../components/Button";
 
 function CustomerRegister(){
     const [fullName, setFullName] = useState('');
@@ -73,9 +74,7 @@ function CustomerRegister(){
                     required 
                 />
 
-                <button type="submit" disabled={loading}>
-                    {loading ? 'Creating account..' : 'Register'}
-                </button>
+                <Button loading={loading} loadingText="Creating Account...">Register</Button>
 
                 <p>Already have an account? <Link to="/login">Login</Link></p>
             </form>

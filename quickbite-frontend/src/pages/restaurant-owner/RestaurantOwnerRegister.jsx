@@ -4,6 +4,7 @@ import { registerRestaurantOwner } from '../../api/userService';
 import Input from '../../components/Input';
 import ErrorMessage from '../../components/ErrorMessage';
 import styles from '../../styles/AuthForm.module.css';
+import Button from '../../components/Button';
 
 function RestaurantOwnerRegister() {
   const [businessName, setBusinessName] = useState('');
@@ -44,9 +45,7 @@ function RestaurantOwnerRegister() {
         <Input label="Phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
         <Input label="Password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
 
-        <button type="submit" disabled={loading}>
-          {loading ? 'Creating account...' : 'Register'}
-        </button>
+        <Button loading={loading} loadingText='Creating Restaurant Online...'>Register</Button>
 
         <p>Already have an account? <Link to="/login">Login</Link></p>
       </form>
