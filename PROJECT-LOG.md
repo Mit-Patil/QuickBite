@@ -535,3 +535,23 @@
 - Build Address management page for customers (add/list/edit/delete, set-default) against the existing /me/addresses endpoints
 - Consider a shared profile-completion form pattern (gender/DOB for customer, vehicle info for delivery partner, business info for restaurant owner) -- all three already have working PUT endpoints, none have frontend UI yet
 - After that: begin customer-facing restaurant browsing/menu pages, the first real "app" screens beyond auth
+
+
+## Session 27 — 2026-09-05
+**Worked on:**
+- Built src/api/addressService.js — thin wrapper functions for all four /me/addresses endpoints (get/add/update/delete)
+- Built src/pages/customer/CustomerLayout.jsx — shared nav shell (Home/Addresses links + Logout) using React Router's nested-route <Outlet /> pattern; restructured App.jsx's customer route into a parent route (CustomerLayout) with index (CustomerHome) and addresses (AddressesPage) child routes
+- Built src/pages/customer/AddressesPage.jsx — full CRUD address management: fetch-on-mount via useEffect, add/edit/delete/set-default, single form that switches between Add and Edit mode based on an editingId state value (null = add mode)
+- Extended AddressesPage to support full field editing (not just set-default): startEdit() prefills the form from a clicked address, handleSubmit branches between addAddress/updateAddress based on editingId, resetForm() centralizes clearing, Cancel button (type="button" to avoid accidental form submission) exits edit mode
+- Verified full end-to-end: list loads correctly on page visit, add creates a new address and refreshes the list, edit prefills and updates the correct address without creating a duplicate, delete removes correctly (including the edge case of deleting an address mid-edit), set-default correctly clears the previous default and refreshes
+
+**Decisions made:**
+- Reused one form for both Add and Edit rather than building a separate edit form/modal -- fields are identical between the two, only the submit behavior and button labels differ, so a single editingId state variable was enough to drive both without duplicating markup
+- CustomerLayout introduced now (rather than waiting) since Addresses was the second customer-facing page -- established the nested-route + <Outlet /> shared-shell pattern before more customer pages accumulate with no way to navigate between them
+
+**Blockers/issues:**
+- None this session
+
+**Next session starts with:**
+- Profile-completion forms (gender/DOB for customer, vehicle info for delivery partner, business info for restaurant owner) against existing PUT /me/{role} endpoints
+- Begin customer-facing restaurant browsing/menu pages -- the first real "app" screens beyond auth and account management
