@@ -1,0 +1,23 @@
+.list{
+    list-style: none;
+    padding: 0;
+}
+
+.item{
+    border: 1px solid #eee;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 8px;
+}
+
+.defaultBadge {
+    background: #e6f4ea;
+    color: #1a7f37;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.form {
+    max-width: 400px;
+}

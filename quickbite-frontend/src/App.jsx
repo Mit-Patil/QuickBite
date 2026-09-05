@@ -8,6 +8,8 @@ import CustomerRegister from './pages/customer/CustomerRegister';
 import RestaurantOwnerRegister from './pages/restaurant-owner/RestaurantOwnerRegister';
 import DeliveryPartnerRegister from './pages/delivery/DeliveryPartnerRegister';
 import DeliveryHome from './pages/delivery/DeliveryHome';
+import CustomerLayout from './pages/customer/CustomerLayout';
+import AddressesPage from './pages/customer/AddressesPage';
 
 function App() {
   return (
@@ -45,7 +47,19 @@ function App() {
           </ProtectedRoute>
         }
       />
-      
+
+      <Route
+        path = "/customer"
+        element={
+          <ProtectedRoute allowedRoles={['CUSTOMER']}>
+            <CustomerLayout />
+          </ProtectedRoute>
+        }
+      >
+      <Route index element={<CustomerHome />} />
+      <Route path="addresses" element={<AddressesPage />} /> 
+      </Route>
+
     </Routes>
   );
 }
