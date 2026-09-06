@@ -555,3 +555,26 @@
 **Next session starts with:**
 - Profile-completion forms (gender/DOB for customer, vehicle info for delivery partner, business info for restaurant owner) against existing PUT /me/{role} endpoints
 - Begin customer-facing restaurant browsing/menu pages -- the first real "app" screens beyond auth and account management
+
+## Session 28 — 2026-09-06
+**Worked on:**
+- Added updateCustomerProfile, updateRestaurantOwnerProfile, updateDeliveryPartnerProfile to userService.js
+- Built src/pages/customer/ProfilePage.jsx — full name/phone/gender/DOB update form, fetch-on-mount via getMe() to prefill, first use of a <select> dropdown (built directly, not through the Input component, since its structure differs meaningfully from a plain input) and a native <input type="date">
+- Built src/pages/restaurant/RestaurantLayout.jsx and ProfilePage.jsx (business name/full name/phone), and src/pages/delivery/DeliveryLayout.jsx and ProfilePage.jsx (vehicle type/number/full name/phone) — same layout+profile pattern as Customer, reused via shared src/styles/DashboardLayout.module.css and src/styles/ProfilePage.module.css instead of per-role duplicate CSS files
+- Restructured /restaurant and /delivery routes in App.jsx from flat routes into nested layout routes (index + profile children), matching the /customer structure from Session 27
+- Debugged and fixed two real bugs: (1) gender enum mismatch -- sending an empty string for "unset" gender failed against the backend's Gender.valueOf() with no null-safe default, fixed by sending the literal PREFER_NOT_TO_SAY enum value instead; (2) DOB not populating on load -- traced to a typo (data.setDateOfBirth instead of data.dateOfBirth) silently evaluating to undefined with no console error; (3) Restaurant-owner's Save button stuck permanently on "Saving..." -- traced to handleSubmit's finally block resetting the wrong state variable (setLoading instead of setSubmitting), copy-paste artifact between two similarly-shaped functions
+- Verified full end-to-end for all three roles: profile loads existing data correctly, updates persist and are reflected after a page refresh, no stuck buttons or blank fields remain
+
+**Decisions made:**
+- Customer's profilePicUrl and Restaurant's logoUrl deliberately deferred to a dedicated future session rather than built now -- file/image upload is a genuinely separate feature requiring a storage decision (local disk vs. a service like Cloudinary) that doesn't exist on the backend yet, and affects both roles identically so it's more efficient to solve once
+- Delivery-partner's current_lat/current_lng intentionally left out of the profile form -- correctly identified as depending on future map integration, not a form field to fill in manually
+- Shared layout/profile CSS Modules moved to a common src/styles/ location (DashboardLayout.module.css, ProfilePage.module.css) rather than duplicating per-role CSS files, since the actual styling is identical across roles and only the nav links/form fields differ in JSX
+- This closes out account-management scope for all three roles: register, login, role-based layout+nav, and profile editing are now considered complete and stable
+
+**Blockers/issues:**
+- None remaining -- three real bugs found and fixed this session (gender enum, DOB typo, stuck submit button), all traced and resolved without needing to guess
+
+**Next session starts with:**
+- Decide file/image upload approach (local disk vs. cloud storage) before building Customer profilePicUrl and Restaurant logoUrl
+- Begin customer-facing restaurant browsing/menu pages -- first real "app" feature screens beyond account management
+- Revisit Kafka scope for Checkpoint 1 once a natural pause point is reached (deadline now expected early-to-mid October, not urgent yet)
