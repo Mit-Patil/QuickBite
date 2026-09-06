@@ -1,12 +1,12 @@
-import {Outlet, useNavigate, Link} from 'react-router-dom';
-import { useAuth } from '../../auth/AuthContext';
+import { Outlet, Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../../auth/AuthContext";
 import styles from '../../styles/DashboardLayout.module.css';
 
-function CustomerLayout(){
-    const { logout } = useAuth();
+function DeliveryLayout(){
+    const {logout} = useAuth();
     const navigate = useNavigate();
 
-    function handleLogout(){
+    async function handleLogout() {
         logout();
         navigate('/login');
     }
@@ -14,9 +14,8 @@ function CustomerLayout(){
     return (
         <div>
             <nav className={styles.nav}>
-                <Link to="/customer">Home</Link>
-                <Link to="/customer/addresses">Addresses</Link>
-                <Link to="/customer/profile">Profile</Link>
+                <Link to="/delivery">Home</Link>
+                <Link to="/delivery/profile">Profile</Link>
                 <button onClick={handleLogout}>Logout</button>
             </nav>
             <main className={styles.main}>
@@ -26,4 +25,4 @@ function CustomerLayout(){
     );
 }
 
-export default CustomerLayout;
+export default DeliveryLayout;

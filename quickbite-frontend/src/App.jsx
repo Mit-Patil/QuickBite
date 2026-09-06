@@ -10,6 +10,11 @@ import DeliveryPartnerRegister from './pages/delivery/DeliveryPartnerRegister';
 import DeliveryHome from './pages/delivery/DeliveryHome';
 import CustomerLayout from './pages/customer/CustomerLayout';
 import AddressesPage from './pages/customer/AddressesPage';
+import ProfilePage from './pages/customer/ProfilePage';
+import RestaurantLayout from './pages/restaurant-owner/RestaurantLayout';
+import RestaurantProfilePage from './pages/restaurant-owner/ProfilePage';
+import DeliveryLayout from './pages/delivery/DeliveryLayout';
+import DeliveryProfilePage from './pages/delivery/ProfilePage';
 
 function App() {
   return (
@@ -58,6 +63,31 @@ function App() {
       >
       <Route index element={<CustomerHome />} />
       <Route path="addresses" element={<AddressesPage />} /> 
+      <Route path="profile" element={<ProfilePage />} />
+      </Route>
+
+      <Route 
+        path='/restaurant'
+        element={
+          <ProtectedRoute allowedRoles={['RESTAURANT_OWNER']}>
+            <RestaurantLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<RestaurantDashboard />} />
+        <Route path='profile' element={<RestaurantProfilePage />} />
+      </Route>  
+
+      <Route 
+        path="/delivery"
+        element={
+          <ProtectedRoute allowedRoles={['DELIVERY_PARTNER']}>
+            <DeliveryLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<DeliveryHome />}/>
+        <Route path='profile' element={<DeliveryProfilePage />}/>
       </Route>
 
     </Routes>
