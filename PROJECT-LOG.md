@@ -578,3 +578,29 @@
 - Decide file/image upload approach (local disk vs. cloud storage) before building Customer profilePicUrl and Restaurant logoUrl
 - Begin customer-facing restaurant browsing/menu pages -- first real "app" feature screens beyond account management
 - Revisit Kafka scope for Checkpoint 1 once a natural pause point is reached (deadline now expected early-to-mid October, not urgent yet)
+
+
+## Session 29 — 2026-09-07
+**Worked on:**
+- Backend: added GET /api/restaurants (public, paginated) to browse restaurants by city with fallback to all-active-restaurants when no city given
+  - Added findByCityIgnoreCaseAndIsActiveTrue(city, Pageable) and findByIsActiveTrue(Pageable) to RestaurantRepository
+  - Added RestaurantService.browseRestaurants(city, Pageable) -- null/blank city falls back to unfiltered active list rather than throwing, returns Page<RestaurantResponse> via Page.map()
+  - Wired browse endpoint in RestaurantController with page/size query params (PageRequest.of), no @PreAuthorize (public browsing)
+- Frontend: built src/api/restaurantService.js (browseRestaurants, getRestaurantById, getMenuForRestaurant against orderClient)
+- Rebuilt CustomerHome.jsx as the restaurant browsing page: city search (separate cityInput vs committed city state to avoid fetching on every keystroke), pagination (Previous/Next, page count from Page's totalPages), non-empty useEffect dependency array ([city, page]) to auto-refetch on search/page change, restaurant cards linking to detail pages
+- Built RestaurantDetailPage.jsx: reads :id from the URL via useParams, fetches restaurant info + menu items in parallel via Promise.all, renders menu with veg/non-veg badges and prices; wired nested route restaurant/:id under /customer
+- Debugged and fixed a real Jackson/Lombok bug (same family as Session 14's isVeg/isDefault issue): isOpen on Restaurant serialized as "open" in JSON (Lombok's boolean-getter-prefix-stripping colliding with Jackson's property-name derivation), causing the frontend's restaurant.isOpen check to always read undefined/falsy and show every restaurant as closed regardless of actual status. Fixed with @JsonProperty("isOpen") on RestaurantResponse only (not the entity or request DTOs, since deserialization uses setters and isn't affected)
+- Verified full end-to-end: browse restaurants by city, pagination works across pages, click into a restaurant, see correct open/closed status and full menu with correct veg/non-veg badges and prices
+
+**Decisions made:**
+- Made pagination a full decision now (Page<RestaurantResponse>, not List) rather than a later add-on, since city-scoped restaurant browsing is genuinely unbounded-growth data
+- Deliberately did NOT paginate the menu-items endpoint for a single restaurant -- menus are naturally bounded in size (one owner, realistically under ~100 items) and a customer needs to see the full menu at once to build an order; pagination there would hurt UX without solving a real scale problem
+- Established a standing rule for future isXxx boolean fields: add @JsonProperty("isXxx") on the response DTO at the time the field is written, rather than discovering the bug after the fact (now hit and fixed this exact issue twice)
+
+**Blockers/issues:**
+- None remaining -- one real backend serialization bug found and fixed with the already-known fix pattern from Session 14
+
+**Next session starts with:**
+- Cart and order-placement flow from the customer side (add menu item to cart, view cart, checkout) -- the natural next step now that browsing + menu viewing work
+- File/image upload (Customer profilePicUrl, Restaurant logoUrl) still deferred, no urgency
+- Kafka scope for Checkpoint 1 still to be revisited, deadline expected early-to-mid October
