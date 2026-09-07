@@ -1,0 +1,45 @@
+/* src/pages/customer/CustomerHome.module.css */
+.searchForm {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  max-width: 400px;
+  margin-bottom: 20px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.card {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.openBadge {
+  background: #e6f4ea;
+  color: #1a7f37;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.closedBadge {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.pagination {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 20px;
+}

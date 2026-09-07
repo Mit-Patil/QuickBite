@@ -15,6 +15,7 @@ import RestaurantLayout from './pages/restaurant-owner/RestaurantLayout';
 import RestaurantProfilePage from './pages/restaurant-owner/ProfilePage';
 import DeliveryLayout from './pages/delivery/DeliveryLayout';
 import DeliveryProfilePage from './pages/delivery/ProfilePage';
+import RestaurantDetailPage from './pages/customer/RestaurantDetailPage';
 
 function App() {
   return (
@@ -64,6 +65,7 @@ function App() {
       <Route index element={<CustomerHome />} />
       <Route path="addresses" element={<AddressesPage />} /> 
       <Route path="profile" element={<ProfilePage />} />
+      <Route path="restaurant/:id" element={<RestaurantDetailPage />} />
       </Route>
 
       <Route 

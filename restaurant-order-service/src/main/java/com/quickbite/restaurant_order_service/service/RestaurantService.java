@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 
@@ -80,6 +82,15 @@ public class RestaurantService {
         return toResponse(saved);
     }
     
+    public Page<RestaurantResponse> browseRestaurants(String city, Pageable pageable) {
+        Page<Restaurant> restaurants;
+        if (city == null || city.isBlank()) {
+            restaurants = restaurantRepository.findByIsActiveTrue(pageable);
+        } else {
+            restaurants = restaurantRepository.findByCityIgnoreCaseAndIsActiveTrue(city, pageable);
+        }
+        return restaurants.map(this::toResponse);
+    }
     
     private RestaurantResponse toResponse(Restaurant r) {
         return RestaurantResponse.builder()

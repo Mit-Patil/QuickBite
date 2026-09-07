@@ -1,5 +1,6 @@
 package com.quickbite.restaurant_order_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDateTime;
@@ -19,6 +20,8 @@ public class RestaurantResponse {
     private boolean twentyFourSeven;
     private String openingTime;
     private String closingTime;
+    
+    @JsonProperty("isOpen")
     private boolean isOpen;
     private LocalDateTime createdAt;
 }
