@@ -16,6 +16,7 @@ import RestaurantProfilePage from './pages/restaurant-owner/ProfilePage';
 import DeliveryLayout from './pages/delivery/DeliveryLayout';
 import DeliveryProfilePage from './pages/delivery/ProfilePage';
 import RestaurantDetailPage from './pages/customer/RestaurantDetailPage';
+import RestaurantFormPage from './pages/restaurant-owner/RestaurantFormPage';
 
 function App() {
   return (
@@ -78,6 +79,8 @@ function App() {
       >
         <Route index element={<RestaurantDashboard />} />
         <Route path='profile' element={<RestaurantProfilePage />} />
+        <Route path="new" element={<RestaurantFormPage />} />
+        <Route path=":id/edit" element={<RestaurantFormPage />} />
       </Route>  
 
       <Route 

@@ -13,3 +13,15 @@ export function getRestaurantById(id){
 export function getMenuForRestaurant(id){
     return orderClient.get(`/api/restaurants/${id}/menu-items`);
 }
+
+export function createRestaurant(data) {
+  return orderClient.post('/api/restaurants', data);
+}
+
+export function getMyRestaurants() {
+  return orderClient.get('/api/restaurants/my');
+}
+
+export function updateRestaurant(id, data) {
+  return orderClient.put(`/api/restaurants/${id}`, data);
+}

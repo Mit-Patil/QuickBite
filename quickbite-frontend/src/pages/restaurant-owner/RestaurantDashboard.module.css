@@ -1,0 +1,44 @@
+/* src/pages/restaurant/RestaurantDashboard.module.css */
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.card {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.openBadge {
+  background: #e6f4ea;
+  color: #1a7f37;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.closedBadge {
+  background: #fef2f2;
+  color: #dc2626;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.addLink {
+  display: inline-block;
+  padding: 8px 16px;
+  border: 1px solid #111;
+  border-radius: 4px;
+  text-decoration: none;
+  color: #111;
+}
