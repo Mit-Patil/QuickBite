@@ -604,3 +604,26 @@
 - Cart and order-placement flow from the customer side (add menu item to cart, view cart, checkout) -- the natural next step now that browsing + menu viewing work
 - File/image upload (Customer profilePicUrl, Restaurant logoUrl) still deferred, no urgency
 - Kafka scope for Checkpoint 1 still to be revisited, deadline expected early-to-mid October
+
+
+## Session 30 — 2026-09-08
+**Worked on:**
+- Added createRestaurant, getMyRestaurants, updateRestaurant to restaurantService.js (reusing existing getRestaurantById for prefill)
+- Rebuilt RestaurantDashboard.jsx to list the owner's restaurants (grid of cards, open/closed badge, Edit/Manage Menu links) with an "Add New Restaurant" link, replacing the earlier placeholder page
+- Built RestaurantFormPage.jsx: single component handling both Create and Edit, mode derived from useParams()'s id (Boolean(id) -> isEditMode), full field set (name/description/cuisineType/restaurantType/address/city/pincode/24-7 toggle/opening-closing time/isOpen), first use of controlled checkboxes (checked + e.target.checked) and <input type="time">
+- Conditional field logic: opening/closing time inputs hidden when 24/7 is checked (and explicitly nulled in the submit payload); isOpen field only included in edit-mode payload, matching the backend's Create vs Update DTO contract (isOpen isn't accepted on create)
+- Wired /restaurant/new and /restaurant/:id/edit nested routes in App.jsx
+- Verified full end-to-end: create a new restaurant, appears correctly in dashboard list; edit an existing restaurant, form prefills correctly including 24/7 and time fields, updates persist and reflect in the dashboard
+
+**Decisions made:**
+- One shared RestaurantFormPage for both Create and Edit (mode from the URL/route, not in-page toggle state) rather than two separate page components -- same reasoning as AddressesPage's editingId pattern, but route-driven since Create/Edit genuinely deserve distinct URLs here
+- Confirmed and reinforced via a direct conversation: the project's logic/state layer (useState, handlers, useEffect, API calls) and its CSS/styling layer are cleanly separated throughout the frontend so far -- a future design pass is expected to mean rewriting .module.css files and tokens.css, with only minor JSX structural touch-ups, not rewriting component logic
+- Identified a concrete gap to close before/alongside the design pass: no shared Select or Checkbox component exists yet -- dropdowns and checkboxes (gender, restaurant type, 24/7, isOpen) are currently hand-rolled per page, unlike Input/Button/ErrorMessage which are already properly shared
+
+**Blockers/issues:**
+- None this session
+
+**Next session starts with:**
+- Build shared Select.jsx and Checkbox.jsx components (matching Input's label+htmlFor/id pattern), then retrofit existing dropdowns/checkboxes across Customer and Restaurant profile/form pages to use them
+- Menu item CRUD for restaurant owners (create/list/edit menu items, then variants/addons) -- the next major backend-flow-to-frontend piece
+- After menu CRUD: customer-side cart and checkout flow
