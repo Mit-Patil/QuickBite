@@ -42,6 +42,10 @@ public class RestaurantService {
                 .isActive(true)
                 .build();
         
+        if (!restaurant.isTwentyFourSeven() && (restaurant.getOpeningTime() == null || restaurant.getClosingTime() == null)) {
+            throw new IllegalArgumentException("Opening and closing time are required unless the restaurant is open 24/7");
+        }
+        
         Restaurant saved = restaurantRepository.save(restaurant);
         return toResponse(saved);  
     }
@@ -73,10 +77,22 @@ public class RestaurantService {
         if(request.getAddressLine() != null) restaurant.setAddressLine(request.getAddressLine());
         if(request.getCity() != null) restaurant.setCity(request.getCity());
         if(request.getPincode() != null) restaurant.setPincode(request.getPincode());
-        if (request.getOpeningTime() != null) restaurant.setOpeningTime(LocalTime.parse(request.getOpeningTime()));
-        if (request.getClosingTime() != null) restaurant.setClosingTime(LocalTime.parse(request.getClosingTime()));
+        if (request.getOpeningTime() != null && !request.getOpeningTime().isBlank()){
+            restaurant.setOpeningTime(LocalTime.parse(request.getOpeningTime()));
+        }
+        if (request.getClosingTime() != null && !request.getClosingTime().isBlank()){
+            restaurant.setClosingTime(LocalTime.parse(request.getClosingTime()));
+        }
         if (request.getIsOpen() != null) restaurant.setOpen(request.getIsOpen());
+        if (request.getTwentyFourSeven() != null) restaurant.setTwentyFourSeven(request.getTwentyFourSeven());
+        if (request.getRestaurantType() != null) {
+            restaurant.setRestaurantType(RestaurantType.valueOf(request.getRestaurantType().toUpperCase()));
+        }
         
+        if (!restaurant.isTwentyFourSeven() && (restaurant.getOpeningTime() == null || restaurant.getClosingTime() == null)) {
+            throw new IllegalArgumentException("Opening and closing time are required unless the restaurant is open 24/7");
+        }
+
         Restaurant saved = restaurantRepository.save(restaurant);
         
         return toResponse(saved);

@@ -5,6 +5,8 @@ import Input from '../../components/Input';
 import Button from '../../components/Button';
 import ErrorMessage from '../../components/ErrorMessage';
 import styles from '../../styles/ProfilePage.module.css';
+import Select from '../../components/Select';
+import Checkbox from '../../components/Checkbox';
 
 function RestaurantFormPage() {
   const { id } = useParams();
@@ -94,23 +96,23 @@ function RestaurantFormPage() {
             <Input label="Description" name="description" value={description} onChange={(e) => setDescription(e.target.value)} />
             <Input label="Cuisine Type" name="cuisineType" value={cuisineType} onChange={(e) => setCuisineType(e.target.value)} />
 
-            <div className={styles.field}>
-            <label>Restaurant Type</label>
-            <select value={restaurantType} onChange={(e) => setRestaurantType(e.target.value)}>
-                <option value="RESTAURANT">Restaurant</option>
-                <option value="CLOUD_KITCHEN">Cloud Kitchen</option>
-            </select>
-            </div>
+            <Select
+              label="Restaurant Type"
+              name="restaurantType"
+              value={restaurantType}
+              onChange={(e) => setRestaurantType(e.target.value)}
+              options={[
+                { value: 'RESTAURANT', label: 'Restaurant' },
+                { value: 'CLOUD_KITCHEN', label: 'Cloud Kitchen' },
+              ]}
+            />
 
             <Input label="Address Line" name="addressLine" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} required />
             <Input label="City" name="city" value={city} onChange={(e) => setCity(e.target.value)} required />
             <Input label="Pincode" name="pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
 
-            <label>
-            <input type="checkbox" checked={twentyFourSeven} onChange={(e) => setTwentyFourSeven(e.target.checked)} />
-            Open 24/7
-            </label>
-
+            <Checkbox label="Open 24/7" name="twentyFourSeven" checked={twentyFourSeven} onChange={(e) => setTwentyFourSeven(e.target.checked)} />
+            
             {!twentyFourSeven && (
             <>
                 <Input label="Opening Time" name="openingTime" type="time" value={openingTime} onChange={(e) => setOpeningTime(e.target.value)} />
@@ -119,10 +121,7 @@ function RestaurantFormPage() {
             )}
 
             {isEditMode && (
-            <label>
-                <input type="checkbox" checked={isOpen} onChange={(e) => setIsOpen(e.target.checked)} />
-                Currently Open
-            </label>
+             <Checkbox label="Currently Open" name="isOpen" checked={isOpen} onChange={(e) => setIsOpen(e.target.checked)} /> 
             )}
 
             <Button loading={submitting} loadingText="Saving...">

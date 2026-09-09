@@ -14,4 +14,5 @@ public class UpdateRestaurantRequest {
     private String addressLine;
     private String city;
     private String pincode;
+    private String restaurantType;
 }

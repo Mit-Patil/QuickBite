@@ -1,11 +1,13 @@
 package com.quickbite.restaurant_order_service.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Builder;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+@JsonIgnoreProperties({"open"})
 @Data
 @Builder
 public class RestaurantResponse {

@@ -4,6 +4,7 @@ import Input from '../../components/Input';
 import ErrorMessage from '../../components/ErrorMessage';
 import Button from '../../components/Button';
 import styles from '../../styles/ProfilePage.module.css';
+import Select from "../../components/Select";
 
 function ProfilePage(){
     const [loading, setLoading] = useState(true);
@@ -64,16 +65,19 @@ function ProfilePage(){
                 <Input label="Full Name" name="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
                 <Input label="Phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
 
-                <div className={styles.field}>
-                    <label htmlFor="gender" className={styles.label}>Gender</label>
-                    <select id = "gender" value={gender} onChange={(e) => setGender(e.target.value)} className={styles.select}>
-                        <option value="PREFER_NOT_TO_SAY">Prefer not say</option>
-                        <option value="MALE">Male</option>
-                        <option value="FEMALE">Female</option>
-                        <option value='OTHER'>Other</option>
-                    </select>
-                </div>
-
+                <Select
+                    label="Gender"
+                    name="gender"
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value)}
+                    options={[
+                        { value: 'PREFER_NOT_TO_SAY', label: 'Prefer not to say' },
+                        { value: 'MALE', label: 'Male' },
+                        { value: 'FEMALE', label: 'Female' },
+                        { value: 'OTHER', label: 'Other'},
+                    ]}
+                />
+                    
                 <Input label="Date Of Birth" name="dateOfBirth" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} />
 
                 <Button loading={submitting} loadingText="Saving....">Save Changes</Button>
