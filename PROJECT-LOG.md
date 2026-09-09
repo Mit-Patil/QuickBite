@@ -627,3 +627,27 @@
 - Build shared Select.jsx and Checkbox.jsx components (matching Input's label+htmlFor/id pattern), then retrofit existing dropdowns/checkboxes across Customer and Restaurant profile/form pages to use them
 - Menu item CRUD for restaurant owners (create/list/edit menu items, then variants/addons) -- the next major backend-flow-to-frontend piece
 - After menu CRUD: customer-side cart and checkout flow
+
+## Session 31 — 2026-09-09
+**Worked on:**
+- Built shared Select.jsx and Checkbox.jsx components matching Input's label+htmlFor/id pattern (Select takes an options array of {value, label}; Checkbox wraps its <input> inside the <label> so clicking the text also toggles it)
+- Retrofitted Customer ProfilePage's gender dropdown and RestaurantFormPage's restaurant-type dropdown + both checkboxes (24/7, Currently Open) to use the new shared components
+- Found and fixed three real backend bugs in RestaurantService.updateRestaurant() during a full review pass:
+  1. twentyFourSeven was never applied on update -- missing entirely from the setter block
+  2. A 403 masking a real crash: unchecking 24/7 with blank opening/closing time inputs sent empty strings (not null) to the backend; LocalTime.parse("") threw an uncaught DateTimeParseException, which triggered Spring's internal /error redirect, which Security then rejected with a misleading 403 -- same failure family as Session 17's cart-clear bug. Fixed by guarding with .isBlank() in addition to != null
+  3. restaurantType was completely missing from UpdateRestaurantRequest and had no update logic at all -- added the field (with enum conversion via RestaurantType.valueOf(), same pattern as createRestaurant) and its setter line
+- Fixed the isOpen/open duplicate-JSON-key bug on RestaurantResponse using the same two-part fix already established in Session 14 (@JsonProperty("isOpen") alone wasn't enough; added @JsonIgnoreProperties({"open"}) at the class level to suppress the getter-derived duplicate)
+- Added a real business-rule validation to both createRestaurant and updateRestaurant: after all fields are applied, if twentyFourSeven is false, both openingTime and closingTime must be non-null, else throw IllegalArgumentException -- placed after all setters run so it validates the true final state being saved, not a stale pre-update state
+- Added an optional className prop (default '') to all five shared components (Input, Select, Checkbox, Button, ErrorMessage), appended alongside each component's own base CSS Module class, so any page can layer extra page-specific styling onto a shared component without forking its logic or structure
+
+**Decisions made:**
+- Confirmed latitude/longitude remain intentionally absent from UpdateRestaurantRequest and its update logic -- consistent with the existing deferred-until-map-integration decision already made for these fields and for Delivery-partner's current_lat/current_lng, not an accidental gap
+- Established the className-override pattern as the standard way to let a specific page restyle a shared component (e.g. a more vibrant Select on an Order page) without duplicating the component itself -- to be used consistently once real visual design work begins, rather than one-off exceptions
+- Reinforced a standing rule from this session's bug-hunting: a String field from JSON needs both a null check and a blank check before being parsed/used, since an empty string and a missing field look identical to business logic but not to Java's null check
+
+**Blockers/issues:**
+- None remaining -- three real, non-trivial backend bugs found via a deliberate full-service review (not just reactive debugging) and fixed correctly in one pass
+
+**Next session starts with:**
+- Menu item CRUD for restaurant owners (create/list/edit menu items, then variants/addons) -- next major backend-flow-to-frontend piece
+- After that: customer-side cart and checkout flow
