@@ -17,6 +17,8 @@ import DeliveryLayout from './pages/delivery/DeliveryLayout';
 import DeliveryProfilePage from './pages/delivery/ProfilePage';
 import RestaurantDetailPage from './pages/customer/RestaurantDetailPage';
 import RestaurantFormPage from './pages/restaurant-owner/RestaurantFormPage';
+import MenuPage from './pages/restaurant-owner/MenuPage';
+import MenuItemFormPage from './pages/restaurant-owner/MenuItemFormPage';
 
 function App() {
   return (
@@ -81,6 +83,9 @@ function App() {
         <Route path='profile' element={<RestaurantProfilePage />} />
         <Route path="new" element={<RestaurantFormPage />} />
         <Route path=":id/edit" element={<RestaurantFormPage />} />
+        <Route path=":id/menu" element={<MenuPage />} />
+        <Route path=":id/menu/new" element={<MenuItemFormPage />} />
+        <Route path=":id/menu/:menuItemId/edit" element={<MenuItemFormPage />} />
       </Route>  
 
       <Route 
