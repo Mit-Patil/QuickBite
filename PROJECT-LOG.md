@@ -651,3 +651,24 @@
 **Next session starts with:**
 - Menu item CRUD for restaurant owners (create/list/edit menu items, then variants/addons) -- next major backend-flow-to-frontend piece
 - After that: customer-side cart and checkout flow
+
+## Session 32 — 2026-09-10
+**Worked on:**
+- Built menuItemService.js (getMenuForRestaurant, createMenuItem, getMenuItemById, updateMenuItem)
+- Built MenuPage.jsx (lists a restaurant's menu items with availability badges, links to add/edit) and MenuItemFormPage.jsx (single Create/Edit component, mode derived from menuItemId route param) in pages/restaurant-owner/ -- resolved a folder-naming mix-up from earlier messages (correct folders are restaurant-owner/ and delivery/, confirmed against App.jsx's actual imports)
+- Wired :id/menu, :id/menu/new, :id/menu/:menuItemId/edit nested routes under /restaurant in App.jsx
+- Identified and fixed a real design gap: stockQuantity alone couldn't distinguish "leave unlimited" from "clear an existing limited value" via a plain null check. Instead of a patch-level fix, added a proper isStockUnlimited boolean field (own migration, entity column, DTO field with @JsonProperty, same pattern already used for twentyFourSeven) as the explicit source of truth
+- Traced and updated every place in OrderService's Saga logic that was implicitly inferring "is this item stock-tracked" from stockQuantity != null -- validation (Step 1), decrement (Step 3), and compensateFailedPayment all switched to check !menuItem.isStockUnlimited() directly, now that create/update validation guarantees stockQuantity is never null when isStockUnlimited is false
+- Added business-rule validation in MenuItemService (create and update): stockQuantity required when isStockUnlimited is false, checked after all fields applied
+- Wired isStockUnlimited through the frontend MenuItemFormPage: a checkbox toggling a conditionally-rendered stock quantity input (same pattern as RestaurantFormPage's 24/7 toggle), defaulting to true (unlimited) for new items, matching the DB column's own default
+
+**Decisions made:**
+- Chose an explicit isStockUnlimited flag over a separate clearStock signal flag for the same problem -- more self-documenting schema, and directly reuses the already-proven twentyFourSeven/opening-closing-time pattern rather than introducing a new kind of "clear this field" convention
+- Confirmed and standardized on the actual existing frontend folder names (pages/restaurant-owner/, pages/delivery/) after a repeated mix-up in chat instructions -- no files were actually duplicated on disk, only import paths in recent messages were wrong
+
+**Blockers/issues:**
+- None remaining -- a real cross-cutting schema change (touching MenuItemService, its DTOs, and OrderService's tested Saga logic) was traced completely and correctly across every affected file before being called done
+
+**Next session starts with:**
+- Variants and addons for menu items (create/attach flow) -- deferred from the original menu CRUD scope
+- Customer-side cart and checkout flow (add to cart, view/manage cart, place order) -- the natural next big feature now that menu management is complete
