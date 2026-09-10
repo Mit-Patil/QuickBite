@@ -64,7 +64,7 @@ public class OrderService {
             if (!menuItem.isAvailable()) {
                 throw new IllegalStateException(menuItem.getName() + " is currently unavailable");
             }
-            if (menuItem.getStockQuantity() != null && menuItem.getStockQuantity() < cartItem.getQuantity()) {
+            if (!menuItem.isStockUnlimited() && menuItem.getStockQuantity() < cartItem.getQuantity()) {
                 throw new IllegalStateException("Not enough stock for " + menuItem.getName());
             }
         }
@@ -126,7 +126,7 @@ public class OrderService {
                 orderItemAddonRepository.save(orderItemAddon);
             }
 
-            if (menuItem.getStockQuantity() != null) {
+            if (!menuItem.isStockUnlimited()) {
                 menuItem.setStockQuantity(menuItem.getStockQuantity() - cartItem.getQuantity());
                 menuItemRepository.save(menuItem);
             }
@@ -214,7 +214,7 @@ public class OrderService {
     private void compensateFailedPayment(Order order, List<CartItem> cartItems) {
         for (CartItem cartItem : cartItems) {
             MenuItem menuItem = cartItem.getMenuItem();
-            if (menuItem.getStockQuantity() != null) {
+            if (!menuItem.isStockUnlimited()) {
                 menuItem.setStockQuantity(menuItem.getStockQuantity() + cartItem.getQuantity());
                 menuItemRepository.save(menuItem);
             }

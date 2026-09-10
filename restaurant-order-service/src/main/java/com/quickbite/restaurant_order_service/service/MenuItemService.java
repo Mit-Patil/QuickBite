@@ -57,9 +57,13 @@ public class MenuItemService {
                 .isVeg(request.isVeg())
                 .isAvailable(true)
                 .stockQuantity(request.getStockQuantity())
+                .isStockUnlimited(request.isStockUnlimited())
                 .imageUrl(request.getImageUrl())
                 .build();
         
+            if (!item.isStockUnlimited() && item.getStockQuantity() == null) {
+                throw new IllegalArgumentException("Stock quantity is required when stock is limited");
+            }
 
             
          MenuItem saved = menuItemRepository.save(item);
@@ -96,8 +100,14 @@ public class MenuItemService {
         if (request.getIsVeg() != null) item.setVeg(request.getIsVeg());
         if (request.getIsAvailable() != null) item.setAvailable(request.getIsAvailable());
         if (request.getStockQuantity() != null) item.setStockQuantity(request.getStockQuantity());
+        if (request.getIsStockUnlimited()!= null) item.setStockUnlimited(request.getIsStockUnlimited());
         if (request.getImageUrl() != null) item.setImageUrl(request.getImageUrl());
 
+        
+        if (!item.isStockUnlimited() && item.getStockQuantity() == null) {
+            throw new IllegalArgumentException("Stock quantity is required when stock is limited");
+        }
+        
         MenuItem saved = menuItemRepository.save(item);
         return toResponse(saved);
     }
@@ -201,6 +211,7 @@ public class MenuItemService {
                     .isVeg(item.isVeg())
                     .isAvailable(item.isAvailable())
                     .stockQuantity(item.getStockQuantity())
+                    .isStockUnlimited(item.isStockUnlimited())
                     .imageUrl(item.getImageUrl())
                     .variants(variants)
                     .addons(addons)

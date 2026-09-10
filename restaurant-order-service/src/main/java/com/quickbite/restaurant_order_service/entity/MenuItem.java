@@ -41,6 +41,10 @@ public class MenuItem {
     @Column(name = "stock_quantity")
     private Integer stockQuantity;
     
+    @Column(name = "is_stock_unlimited", nullable = false)
+    @Builder.Default
+    private boolean isStockUnlimited = true;
+    
     @Column(name = "image_url")
     private String imageUrl;   
     

@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-@JsonIgnoreProperties({"veg", "available"})
+@JsonIgnoreProperties({"veg", "available", "stockUnlimited"})
 @Data
 @Builder
 public class MenuItemResponse {
@@ -24,6 +24,9 @@ public class MenuItemResponse {
     @JsonProperty("isAvailable")
     private boolean isAvailable;
     private Integer stockQuantity;
+    
+    @JsonProperty("isStockUnlimited")
+    private boolean isStockUnlimited;
     private String imageUrl;
     private List<ItemVariantResponse> variants;
     private List<ItemAddonResponse> addons;

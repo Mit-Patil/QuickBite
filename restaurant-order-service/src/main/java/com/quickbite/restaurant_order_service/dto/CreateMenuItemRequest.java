@@ -17,5 +17,7 @@ public class CreateMenuItemRequest {
     @JsonProperty("isVeg")
     private boolean isVeg;
     private Integer stockQuantity;
+    @JsonProperty("isStockUnlimited")
+    private boolean isStockUnlimited;
     private String imageUrl;
 }

@@ -12,5 +12,6 @@ public class UpdateMenuItemRequest {
     private Boolean isVeg;
     private Boolean isAvailable;
     private Integer stockQuantity;
+    private Boolean isStockUnlimited;
     private String imageUrl;
 }
