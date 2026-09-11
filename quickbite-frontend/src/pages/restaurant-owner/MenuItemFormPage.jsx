@@ -6,6 +6,8 @@ import Checkbox from '../../components/Checkbox';
 import Button from '../../components/Button';
 import ErrorMessage from '../../components/ErrorMessage';
 import styles from '../../styles/ProfilePage.module.css';
+import VariantManager from './VariantManager';
+import AddonManager from './AddonManager';
 
 function MenuItemFormPage() {
   const { id, menuItemId } = useParams();
@@ -24,6 +26,10 @@ function MenuItemFormPage() {
   const [stockQuantity, setStockQuantity] = useState('');
   const [isStockUnlimited, setIsStockUnlimited] = useState(true);
   const [isAvailable, setIsAvailable] = useState(true);
+  
+  const [variants, setVariants] = useState([]);
+  const [addons, setAddons] = useState([]);
+  const [restaurantAddons, setRestaurantAddons] = useState([]);
 
   useEffect(() => {
     if (isEditMode) loadItem();
@@ -41,6 +47,8 @@ function MenuItemFormPage() {
       setStockQuantity(item.stockQuantity ?? '');
       setIsStockUnlimited(item.isStockUnlimited);
       setIsAvailable(item.isAvailable);
+      setVariants(item.variants);
+      setAddons(item.addons);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -76,6 +84,27 @@ function MenuItemFormPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleVariantAdded(newVariant) {
+    setVariants([...variants, newVariant]);
+  }
+
+  function handleAddonAttached(newAddon) {
+    setAddons([...addons, newAddon]);
+  }
+
+  function handleVariantUpdated(updated) {
+    setVariants(variants.map((v) => (v.id === updated.id ? updated : v)));
+  }
+  function handleVariantDeleted(variantId) {
+    setVariants(variants.filter((v) => v.id !== variantId));
+  }
+  function handleAddonUpdated(updated) {
+    setAddons(addons.map((a) => (a.id === updated.id ? updated : a)));
+  }
+  function handleAddonDetached(addonId) {
+    setAddons(addons.filter((a) => a.id !== addonId));
   }
 
   if (loading) return <p>Loading menu item...</p>;
@@ -119,6 +148,26 @@ function MenuItemFormPage() {
           {isEditMode ? 'Save Changes' : 'Add Item'}
         </Button>
       </form>
+
+      {isEditMode && (
+        <>
+          <VariantManager
+            menuItemId={menuItemId}
+            variants={variants}
+            onVariantAdded={handleVariantAdded}
+            onVariantUpdated={handleVariantUpdated}
+            onVariantDeleted={handleVariantDeleted}
+          />
+          <AddonManager
+            restaurantId={id}
+            menuItemId={menuItemId}
+            attachedAddons={addons}
+            onAddonAttached={handleAddonAttached}
+            onAddonUpdated={handleAddonUpdated}
+            onAddonDetached={handleAddonDetached}
+          />
+        </>
+      )}
     </div>
   );
 }
