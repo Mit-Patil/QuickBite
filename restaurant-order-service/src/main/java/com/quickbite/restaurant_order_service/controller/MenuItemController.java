@@ -63,6 +63,42 @@ public class MenuItemController {
         menuItemService.attachAddon(id, ownerId, request);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+    
+    @GetMapping("/api/restaurants/{restaurantId}/addons")
+    public ResponseEntity<List<ItemAddonResponse>> getAddons(@PathVariable UUID restaurantId) {
+        return ResponseEntity.ok(menuItemService.getAddonsForRestaurant(restaurantId));
+    }
+    
+    
+    @PutMapping("/api/menu-items/{itemId}/variants/{variantId}")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<ItemVariantResponse> updateVariant(@PathVariable UUID itemId, @PathVariable UUID variantId, @Valid @RequestBody UpdateItemVariantRequest request){
+        UUID ownerId = getCurrentUserId();
+        return ResponseEntity.ok(menuItemService.updateVariant(variantId, ownerId, request));
+    }
+    
+    @DeleteMapping("/api/menu-items/{itemId}/variants/{variantId}")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<Void> removeVariant(@PathVariable UUID itemId, @PathVariable UUID variantId){
+        UUID ownerId = getCurrentUserId();
+        menuItemService.deleteVariant(variantId, ownerId);
+        return ResponseEntity.noContent().build();
+    }
+    
+    @PutMapping("/api/restaurants/{restaurantId}/addons/{addonId}")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<ItemAddonResponse> updateAddons(@PathVariable UUID addonId,@Valid @RequestBody UpdateItemAddonRequest request){
+        UUID ownerId = getCurrentUserId();
+        return ResponseEntity.ok(menuItemService.updateAddon(addonId, ownerId, request));
+    }
+    
+    @DeleteMapping("/api/menu-items/{itemId}/addons/{addonId}")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<Void> detachAddon(@PathVariable UUID itemId,@PathVariable UUID addonId){
+        UUID ownerId = getCurrentUserId();
+        menuItemService.detachAddon(itemId, addonId, ownerId);
+        return ResponseEntity.noContent().build();
+    }
 
     private UUID getCurrentUserId() {
         return (UUID) SecurityContextHolder.getContext().getAuthentication().getPrincipal();

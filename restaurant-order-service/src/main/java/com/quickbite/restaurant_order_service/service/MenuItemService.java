@@ -7,6 +7,8 @@ import com.quickbite.restaurant_order_service.dto.CreateMenuItemRequest;
 import com.quickbite.restaurant_order_service.dto.ItemAddonResponse;
 import com.quickbite.restaurant_order_service.dto.ItemVariantResponse;
 import com.quickbite.restaurant_order_service.dto.MenuItemResponse;
+import com.quickbite.restaurant_order_service.dto.UpdateItemAddonRequest;
+import com.quickbite.restaurant_order_service.dto.UpdateItemVariantRequest;
 import com.quickbite.restaurant_order_service.dto.UpdateMenuItemRequest;
 import com.quickbite.restaurant_order_service.entity.ItemAddon;
 import com.quickbite.restaurant_order_service.entity.ItemVariant;
@@ -61,8 +63,17 @@ public class MenuItemService {
                 .imageUrl(request.getImageUrl())
                 .build();
         
-            if (!item.isStockUnlimited() && item.getStockQuantity() == null) {
-                throw new IllegalArgumentException("Stock quantity is required when stock is limited");
+            if (!item.isStockUnlimited()) {
+                if (item.getStockQuantity() == null) {
+                    throw new IllegalArgumentException("Stock quantity is required when stock is limited");
+                }
+                if (item.getStockQuantity() < 0) {
+                    throw new IllegalArgumentException("Stock quantity cannot be negative");
+                }
+            }
+            
+            if (item.getPrice() != null && item.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Price must be greater than zero");
             }
 
             
@@ -104,8 +115,17 @@ public class MenuItemService {
         if (request.getImageUrl() != null) item.setImageUrl(request.getImageUrl());
 
         
-        if (!item.isStockUnlimited() && item.getStockQuantity() == null) {
-            throw new IllegalArgumentException("Stock quantity is required when stock is limited");
+        if (!item.isStockUnlimited()) {
+            if (item.getStockQuantity() == null) {
+                throw new IllegalArgumentException("Stock quantity is required when stock is limited");
+            }
+            if (item.getStockQuantity() < 0) {
+                throw new IllegalArgumentException("Stock quantity cannot be negative");
+            }
+        }
+        
+        if (item.getPrice() != null && item.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Price must be greater than zero");
         }
         
         MenuItem saved = menuItemRepository.save(item);
@@ -127,6 +147,10 @@ public class MenuItemService {
                 .price(request.getPrice())
                 .isDefault(request.isDefault())
                 .build();
+        
+        if (variant.getPrice() != null && variant.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Price must be greater than zero");
+        }
 
         ItemVariant saved = itemVariantRepository.save(variant);
         return ItemVariantResponse.builder()
@@ -151,6 +175,10 @@ public class MenuItemService {
                 .price(request.getPrice() != null ? request.getPrice() : BigDecimal.ZERO)
                 .build();
 
+        if (addon.getPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Price cannot be negative");
+        }
+        
         ItemAddon saved = itemAddonRepository.save(addon);
         return ItemAddonResponse.builder()
                 .id(saved.getId())
@@ -183,7 +211,86 @@ public class MenuItemService {
                 .build();
         menuItemAddonRepository.save(link);
     }
+    
+    public List<ItemAddonResponse> getAddonsForRestaurant(UUID restaurantId){
+        return itemAddonRepository.findByRestaurantId(restaurantId)
+                .stream()
+                .map(a -> ItemAddonResponse.builder()
+                        .id(a.getId())
+                        .name(a.getName())
+                        .price(a.getPrice())
+                        .isAvailable(a.isAvailable())
+                        .build())
+                .collect(Collectors.toList());
+    }
 
+    public ItemVariantResponse updateVariant(UUID variantId, UUID ownerId, UpdateItemVariantRequest request) {
+        ItemVariant variant = itemVariantRepository.findById(variantId)
+                .orElseThrow(() -> new IllegalArgumentException("Variant not found"));
+
+        if (!variant.getMenuItem().getRestaurant().getOwnerId().equals(ownerId)) {
+            throw new IllegalArgumentException("You do not own this variant");
+        }
+
+        if (request.getName() != null) variant.setName(request.getName());
+        if (request.getPrice() != null) variant.setPrice(request.getPrice());
+        if (request.getIsDefault() != null) variant.setDefault(request.getIsDefault());
+
+        if (variant.getPrice() != null && variant.getPrice().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Price must be greater than zero");
+        }
+        
+        ItemVariant saved = itemVariantRepository.save(variant);
+        return ItemVariantResponse.builder()
+                .id(saved.getId()).name(saved.getName()).price(saved.getPrice()).isDefault(saved.isDefault())
+                .build();
+    }
+
+    public void deleteVariant(UUID variantId, UUID ownerId) {
+        ItemVariant variant = itemVariantRepository.findById(variantId)
+                .orElseThrow(() -> new IllegalArgumentException("Variant not found"));
+
+        if (!variant.getMenuItem().getRestaurant().getOwnerId().equals(ownerId)) {
+            throw new IllegalArgumentException("You do not own this variant");
+        }
+
+        itemVariantRepository.delete(variant);
+    }
+    
+    public ItemAddonResponse updateAddon(UUID addonId, UUID ownerId, UpdateItemAddonRequest request) {
+        ItemAddon addon = itemAddonRepository.findById(addonId)
+                .orElseThrow(() -> new IllegalArgumentException("Addon not found"));
+
+        if (!addon.getRestaurant().getOwnerId().equals(ownerId)) {
+            throw new IllegalArgumentException("You do not own this addon");
+        }
+
+        if (request.getName() != null) addon.setName(request.getName());
+        if (request.getPrice() != null) addon.setPrice(request.getPrice());
+        if (request.getIsAvailable() != null) addon.setAvailable(request.getIsAvailable());
+
+        if (addon.getPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Price cannot be negative");
+        }
+        
+        ItemAddon saved = itemAddonRepository.save(addon);
+        return ItemAddonResponse.builder()
+                .id(saved.getId()).name(saved.getName()).price(saved.getPrice()).isAvailable(saved.isAvailable())
+                .build();
+    }
+
+    public void detachAddon(UUID menuItemId, UUID addonId, UUID ownerId) {
+        MenuItem item = menuItemRepository.findById(menuItemId)
+                .orElseThrow(() -> new IllegalArgumentException("Menu item not found"));
+
+        if (!item.getRestaurant().getOwnerId().equals(ownerId)) {
+            throw new IllegalArgumentException("You do not own this menu item");
+        }
+
+        MenuItemAddonId id = new MenuItemAddonId(menuItemId, addonId);
+        menuItemAddonRepository.deleteById(id);
+    }
+    
     private MenuItemResponse toResponse(MenuItem item) {
         List<ItemVariantResponse> variants = itemVariantRepository.findByMenuItemId(item.getId())
                 .stream()
