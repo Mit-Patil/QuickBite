@@ -672,3 +672,23 @@
 **Next session starts with:**
 - Variants and addons for menu items (create/attach flow) -- deferred from the original menu CRUD scope
 - Customer-side cart and checkout flow (add to cart, view/manage cart, place order) -- the natural next big feature now that menu management is complete
+
+## Session 33 — 2026-09-11
+**Worked on:**
+- Backend: added the missing GET /api/restaurants/{restaurantId}/addons endpoint (repository method, service method, public controller route) so the frontend can list a restaurant's addon pool before attaching
+- Backend: added full edit/delete for variants (PUT/DELETE /api/menu-items/{itemId}/variants/{variantId}) and edit/detach for addons (PUT /api/restaurants/{restaurantId}/addons/{addonId}, DELETE /api/menu-items/{itemId}/addons/{addonId}) -- deliberately scoped addon "delete" as detach-from-this-item-only, not delete-the-shared-addon-entirely, since addons are intentionally reused across menu items
+- Found and fixed several real bugs during this pass: two variant endpoints were missing their variantId @PathVariable entirely and passing itemId into methods expecting the variant's own ID (compiled fine, would have silently failed at runtime); three separate hasRole() typos (RESTAURANT-OWNER with a hyphen, REATAURANT_OWNER misspelled) causing genuine, hard-to-spot 403s with no crash involved at all -- a different bug shape from the earlier "uncaught exception disguised as 403" pattern
+- Frontend: built out full variant and addon management in MenuItemFormPage, split cleanly into two self-contained child components (VariantManager.jsx, AddonManager.jsx) each owning their own local form/edit state and reporting changes back to the parent via callback props (onVariantAdded/Updated/Deleted, onAddonAttached/Updated/Detached) -- parent only stores the resulting lists, never the intermediate form state
+- Added inline edit/delete (detach for addons) to both managers using the array.map-replace-by-id pattern for in-place list updates after a successful edit, avoiding a full re-fetch
+- Added price validation: menu items and variants must be > 0 (a free dish/variant isn't a meaningful real state); addons allowed to be >= 0 (free addons like "no onions" are a legitimate real case) -- deliberately different rules for structurally similar fields based on real-world meaning
+- Verified full end-to-end: create/edit/delete variants, create/edit/detach addons, shared addon edits reflected correctly in both the attach-pool and any menu item currently using it, all price/stock validation rules behaving correctly per field
+
+**Decisions made:**
+- Addon "delete" scoped to detach-only for now; a true "delete this addon from the restaurant entirely" (which would cascade across every menu item using it) deferred as a separate, more dangerous action needing its own confirmation flow later
+- Confirmed and applied context-dependent validation rules rather than one blanket rule per data type: stock quantity (0 valid, negative invalid), menu item/variant price (must be strictly positive), addon price (0 valid, negative invalid) -- same principle already established with is-flags, now extended to numeric validation
+
+**Blockers/issues:**
+- None remaining -- multiple real bugs (missing path variables, three separate role-string typos) found and fixed via careful review rather than guesswork
+
+**Next session starts with:**
+- Customer-side cart and checkout flow (add to cart with variant/addon selection, view/manage cart, place order) -- the natural next big feature now that restaurant and menu management (including variants/addons) is fully complete on both backend and frontend
