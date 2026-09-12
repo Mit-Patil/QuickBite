@@ -37,3 +37,28 @@
   border-radius: 4px;
   font-size: 12px;
 }
+
+.menuItemMain {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.subList {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.subList ul {
+  margin: 4px 0 0 0;
+  padding-left: 20px;
+}
+
+.unavailableBadge {
+  background: #f0f0f0;
+  color: #666;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-left: 6px;
+}

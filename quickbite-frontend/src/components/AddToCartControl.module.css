@@ -1,0 +1,44 @@
+.control {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+.options {
+  margin-bottom: 8px;
+}
+
+.optionLabel {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.quantityStepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quantityStepper button {
+  width: 28px;
+  height: 28px;
+}
+
+.addButton {
+  width: auto;
+  padding: 8px 16px;
+}
+
+.unavailable {
+  color: #999;
+  font-style: italic;
+  margin-top: 8px;
+}
