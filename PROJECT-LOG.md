@@ -692,3 +692,23 @@
 
 **Next session starts with:**
 - Customer-side cart and checkout flow (add to cart with variant/addon selection, view/manage cart, place order) -- the natural next big feature now that restaurant and menu management (including variants/addons) is fully complete on both backend and frontend
+
+## Session 34 — 2026-09-12
+**Worked on:**
+- Fixed RestaurantDetailPage's menu display: added proper rendering of variants and addons (previously hidden), fixed a duplicate-price-line bug, and resolved a real pricing-display ambiguity -- items with variants now show "From ₹[lowest variant price]" instead of a flat item.price that's never actually charged once a variant is selected (confirmed against CartService and OrderService: both already correctly use variant.getPrice() when present, falling back to menuItem.getPrice() only when there's no variant -- a pure display fix, no backend logic changed)
+- Built cartService.js (addToCart, getCart, removeCartItem, clearCart)
+- Built AddToCartControl.jsx: per-menu-item inline add-to-cart UI with variant selection (new RadioOption component, since variant groups need shared name/group behavior that Input/Checkbox aren't shaped for), addon selection (reused existing Checkbox component), a plain quantity stepper (deliberately not using shared Button, since it's a different kind of control -- small/secondary/no loading state), availability guard (shows "Currently unavailable" instead of the control), and a temporary "Added ✓" confirmation that reverts after 2 seconds via useEffect + setTimeout with a cleanup function (return () => clearTimeout(timer)) to avoid overlapping timers on rapid re-clicks
+- Added an optional onClick prop to the shared Button component to support standalone action buttons outside a <form>, with no changes required to any existing usage (prop is undefined by default, harmless on native <button>)
+- Verified full end-to-end: added a variant+multiple-addons item to cart, confirmed correct real rows in carts, cart_items, and cart_item_addons tables, matching selections exactly
+
+**Decisions made:**
+- Deliberately did NOT force quantity stepper buttons or radio button groups through existing shared components (Button, Input) where the structural shape didn't genuinely fit -- same principle already established with Select vs checkboxes: shared components are for genuinely reusable shapes, not forced generalization
+- Confirmed useEffect's cleanup function (the function returned from an effect) as the correct pattern for anything scheduled with setTimeout/setInterval inside a component, to prevent overlapping/stale timers
+
+**Blockers/issues:**
+- None remaining
+
+**Next session starts with:**
+- Cart page: view all cart items with quantities/addons/line totals, remove items, running subtotal
+- Checkout: select a saved address, choose payment method, place order via existing POST /api/orders
+- Order confirmation and order history (GET /api/orders, GET /api/orders/{id})
