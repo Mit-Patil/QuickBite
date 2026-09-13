@@ -19,6 +19,7 @@ import RestaurantDetailPage from './pages/customer/RestaurantDetailPage';
 import RestaurantFormPage from './pages/restaurant-owner/RestaurantFormPage';
 import MenuPage from './pages/restaurant-owner/MenuPage';
 import MenuItemFormPage from './pages/restaurant-owner/MenuItemFormPage';
+import CartPage from './pages/customer/CartPage';
 
 function App() {
   return (
@@ -69,6 +70,7 @@ function App() {
       <Route path="addresses" element={<AddressesPage />} /> 
       <Route path="profile" element={<ProfilePage />} />
       <Route path="restaurant/:id" element={<RestaurantDetailPage />} />
+      <Route path="cart" element={<CartPage />} />
       </Route>
 
       <Route 

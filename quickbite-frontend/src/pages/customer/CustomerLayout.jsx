@@ -17,6 +17,7 @@ function CustomerLayout(){
                 <Link to="/customer">Home</Link>
                 <Link to="/customer/addresses">Addresses</Link>
                 <Link to="/customer/profile">Profile</Link>
+                <Link to="/customer/cart">Cart</Link>
                 <button onClick={handleLogout}>Logout</button>
             </nav>
             <main className={styles.main}>
