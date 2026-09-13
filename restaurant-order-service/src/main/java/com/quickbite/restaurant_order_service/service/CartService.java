@@ -40,6 +40,18 @@ public class CartService {
         MenuItem menuItem = menuItemRepository.findById(request.getMenuItemId())
                 .orElseThrow(() -> new IllegalArgumentException("Menu Item Not Found"));
         
+        if (!menuItem.getRestaurant().isOpen()) {
+            throw new IllegalArgumentException("This restaurant is currently closed");
+        }
+
+        if (!menuItem.isAvailable()) {
+            throw new IllegalArgumentException("This item is currently unavailable");
+        }
+
+        if (!menuItem.isStockUnlimited() && menuItem.getStockQuantity() < request.getQuantity()) {
+            throw new IllegalArgumentException("Only " + menuItem.getStockQuantity() + " left in stock");
+        }
+        
         Cart cart = cartRepository.findByCustomerId(customerId).orElse(null);
         
         
@@ -58,6 +70,31 @@ public class CartService {
             variant = itemVariantRepository.findById(request.getVariantId())
                     .orElseThrow(() -> new IllegalArgumentException("Variant Not Found"));
         }
+        
+         List<UUID> requestedAddonIds = request.getAddonIds() != null
+            ? request.getAddonIds().stream().sorted().collect(Collectors.toList())
+            : List.of();
+         
+         List<CartItem> existingItems = cartItemRepository.findByCartId(cart.getId());
+            for (CartItem existing : existingItems) {
+                boolean sameMenuItem = existing.getMenuItem().getId().equals(menuItem.getId());
+                boolean sameVariant = (existing.getVariant() == null && variant == null)
+                        || (existing.getVariant() != null && variant != null && existing.getVariant().getId().equals(variant.getId()));
+
+                if (sameMenuItem && sameVariant) {
+                    List<UUID> existingAddonIds = cartItemAddonRepository.findByIdCartItemId(existing.getId())
+                            .stream()
+                            .map(link -> link.getItemAddon().getId())
+                            .sorted()
+                            .collect(Collectors.toList());
+
+                    if (existingAddonIds.equals(requestedAddonIds)) {
+                        existing.setQuantity(existing.getQuantity() + request.getQuantity());
+                        cartItemRepository.save(existing);
+                        return getCart(customerId);
+                    }
+                }
+            }
         
         CartItem cartItem = CartItem.builder()
                 .cart(cart)
@@ -109,6 +146,7 @@ public class CartService {
                 .build();
     }
     
+    @Transactional
     public void removeCartItem(UUID customerId, UUID cartItemId){
         CartItem item = cartItemRepository.findById(cartItemId)
                 .orElseThrow(() -> new IllegalArgumentException("Cart item not found"));
@@ -118,7 +156,13 @@ public class CartService {
             throw new IllegalArgumentException("This is not your cart item");
         }
         
+        Cart cart = item.getCart();
         cartItemRepository.deleteById(cartItemId);
+        
+        boolean anyItemsLeft = !cartItemRepository.findByCartId(cart.getId()).isEmpty();
+        if(!anyItemsLeft){
+            cartRepository.delete(cart);
+        }
     }
     
     @Transactional
