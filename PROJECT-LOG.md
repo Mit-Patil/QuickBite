@@ -712,3 +712,22 @@
 - Cart page: view all cart items with quantities/addons/line totals, remove items, running subtotal
 - Checkout: select a saved address, choose payment method, place order via existing POST /api/orders
 - Order confirmation and order history (GET /api/orders, GET /api/orders/{id})
+
+## Session 35 — 2026-09-13
+**Worked on:**
+- Built CartPage.jsx: lists cart items (menu item name, variant name, addon names, quantity × unit price, line total), Remove per item, Clear Cart, subtotal, link to checkout; treats "no cart" and "empty cart" as the same friendly empty-state (backend throws IllegalArgumentException for a genuinely missing cart row, not a 200 with an empty list)
+- Confirmed cart intentionally shows subtotal only (no tax/delivery) -- those are order-time business rules living in OrderService's config, not cart concerns; full breakdown will show on the upcoming checkout page instead
+- Found and fixed a real bug: CartService.addToCart() never merged identical cart lines -- every add created a new row even when menu item, variant, and addon selections exactly matched an existing line. Fixed by comparing sorted addon-ID lists (order-independent) alongside menuItem/variant match, incrementing quantity on a true match instead of inserting a duplicate row. Known, accepted scope limit: specialInstructions is not part of the match, so differing notes still merge into the existing line's notes
+- Found and fixed a second real bug: removeCartItem() only deleted the CartItem row, never the parent Cart when it became empty -- left a stale, empty cart pinned to the old restaurant, which then incorrectly blocked adding items from a different restaurant afterward (clearCart already handled this correctly; removeCartItem did not). Fixed by checking for remaining items post-delete and deleting the cart if none remain, wrapped in @Transactional
+- Added restaurant-closed and stock-vs-quantity checks directly to addToCart (best-effort UX guard at add time; OrderService.placeOrder remains the real, authoritative enforcement point) -- explicitly scoped as not accounting for quantity already sitting in the cart when merging, a known minor gap rather than a full cart-level stock reservation system
+
+**Decisions made:**
+- Deliberately did not build cart-level stock reservation (locking stock the moment something's added to cart) -- real added complexity (reservation timeouts, releasing on abandoned carts) for marginal benefit at this project's scale; best-effort add-time check + hard order-placement enforcement is the standard, acceptable trade-off
+- Confirmed the general principle from today's parent-cleanup bug: any code path that can empty a child collection needs to check whether its parent should also be cleaned up, not just the "obvious" path (clearCart had this already; removeCartItem was the gap)
+
+**Blockers/issues:**
+- None remaining -- two real, non-trivial CartService bugs found through actual testing and fixed correctly
+
+**Next session starts with:**
+- Checkout page: cart summary with accurate subtotal + tax + delivery + total preview (mirroring OrderService's calculation), saved-address selector, payment method selector, Place Order action against POST /api/orders
+- Order confirmation and order history (GET /api/orders, GET /api/orders/{id})
