@@ -170,6 +170,10 @@ public class CartService {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Cart is empty"));
 
+        List<CartItem> items = cartItemRepository.findByCartId(cart.getId());
+        for (CartItem item : items) {
+            cartItemAddonRepository.deleteByIdCartItemId(item.getId());
+        }
         cartItemRepository.deleteByCartId(cart.getId());
         cartRepository.delete(cart);
     }

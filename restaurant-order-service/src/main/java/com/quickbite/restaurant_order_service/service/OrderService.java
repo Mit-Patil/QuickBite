@@ -181,6 +181,10 @@ public class OrderService {
                 System.err.println("Reconciliation found payment DID succeed for key: " + idempotencyKey);
                 order.setStatus(OrderStatus.CONFIRMED);
                 order = orderRepository.save(order);
+                List<CartItem> items = cartItemRepository.findByCartId(cart.getId());
+                for (CartItem item : items) {
+                    cartItemAddonRepository.deleteByIdCartItemId(item.getId());
+                }
                 cartItemRepository.deleteByCartId(cart.getId());
                 cartRepository.delete(cart);
                 return toResponse(order);
@@ -197,6 +201,10 @@ public class OrderService {
         if ("SUCCESS".equals(paymentResponse.getStatus())) {
                 order.setStatus(OrderStatus.CONFIRMED);
                 order = orderRepository.save(order);
+                List<CartItem> items = cartItemRepository.findByCartId(cart.getId());
+                for (CartItem item : items) {
+                    cartItemAddonRepository.deleteByIdCartItemId(item.getId());
+                }
                 cartItemRepository.deleteByCartId(cart.getId());
                 cartRepository.delete(cart);
             } else {
