@@ -731,3 +731,22 @@
 **Next session starts with:**
 - Checkout page: cart summary with accurate subtotal + tax + delivery + total preview (mirroring OrderService's calculation), saved-address selector, payment method selector, Place Order action against POST /api/orders
 - Order confirmation and order history (GET /api/orders, GET /api/orders/{id})
+
+## Session 36 — 2026-09-16
+**Worked on:**
+- Built orderService.js, CheckoutPage.jsx (cart summary, saved-address selector defaulting to the customer's default address, payment method selector, client-side subtotal+tax+delivery+total preview mirroring OrderService's calculation -- explicitly a display-only estimate using hardcoded constants matching the backend's current config defaults, known to drift if those config values change), and OrderConfirmationPage.jsx (uses array index as key, justified since OrderItemResponse has no id and the list is static post-placement)
+- Debugged and fixed a genuine, non-trivial Hibernate bug spanning two levels: placing an order threw TransientPropertyValueException, first from CartItemAddon → CartItem, then (after a partial fix) from CartItem → Cart. Root cause: derived bulk-delete methods (deleteByCartId, deleteByIdCartItemId) execute raw SQL directly against the DB, bypassing Hibernate's persistence context -- entities loaded earlier in the same transaction (e.g. Step 1.5's pre-fetched addon map) remained "managed" in Hibernate's memory even after their DB rows were gone via cascade, causing a conflict on the next flush. Fixed by adding @Modifying(clearAutomatically = true) to both bulk-delete repository methods, forcing Hibernate to clear its persistence context after each bulk delete, and restoring explicit, correctly-ordered cleanup (addons → items → cart) in CartService.clearCart and both success paths of OrderService.placeOrder
+- Verified full order placement end-to-end including the reconciliation path (payment-service's artificial test delay triggered the timeout branch, which correctly confirmed the order via status-check reconciliation rather than incorrectly compensating a successful payment) -- confirmed correct stock decrement, correct tax/delivery/total calculation, and correct order confirmation display
+- Found a final real gap: an item at zero stock (not unlimited) still showed active Add to Cart controls, since AddToCartControl only checked isAvailable, never stock quantity -- fixed by treating stockQuantity === 0 (when not unlimited) as an equivalent "can't order this" state, labeled distinctly as "Out of stock" vs "Currently unavailable"
+
+**Decisions made:**
+- Confirmed cart shows subtotal only, no tax/delivery -- those are order-time business rules living in OrderService's config, not cart concerns; full breakdown correctly belongs on checkout instead, which was built this session
+- Reinforced a general Hibernate/JPA principle from this session's core bug: when a DB-level cascade exists, bulk-delete repository methods that also touch those rows must be marked @Modifying(clearAutomatically = true), or previously-loaded entities in the same transaction can be left in a stale, conflicting state even though the underlying data is correct
+
+**Blockers/issues:**
+- None remaining -- one substantial, multi-layered Hibernate bug fully root-caused (not just patched at the first symptom) and fixed correctly, verified against both the normal and reconciliation payment paths
+
+**Next session starts with:**
+- Order history page for customers (GET /api/orders) linking to individual order details
+- Restaurant-owner order management view (list orders for a restaurant, update status, cancel) -- backend already complete (getOrdersForRestaurant, updateOrderStatus, cancelOrder), frontend not yet built
+- Revisit Kafka scope for Checkpoint 1 now that the full customer ordering flow (browse → cart → checkout → order) is complete end-to-end
