@@ -53,8 +53,10 @@ function AddToCartControl({ item, onAdded }) {
     }
   }
 
-  if (!item.isAvailable) {
-    return <p className={styles.unavailable}>Currently unavailable</p>;
+  const outOfStock = !item.isStockUnlimited && item.stockQuantity === 0;
+
+  if (!item.isAvailable || outOfStock) {
+    return <p className={styles.unavailable}>{outOfStock ? 'Out of stock' : 'Currently unavailable'}</p>;
   }
 
   return (

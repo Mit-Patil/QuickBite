@@ -1,4 +1,3 @@
-// src/App.jsx
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from './auth/ProtectedRoute';
 import Login from './pages/Login';
@@ -20,6 +19,8 @@ import RestaurantFormPage from './pages/restaurant-owner/RestaurantFormPage';
 import MenuPage from './pages/restaurant-owner/MenuPage';
 import MenuItemFormPage from './pages/restaurant-owner/MenuItemFormPage';
 import CartPage from './pages/customer/CartPage';
+import CheckoutPage from './pages/customer/CheckoutPage';
+import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
 
 function App() {
   return (
@@ -71,6 +72,8 @@ function App() {
       <Route path="profile" element={<ProfilePage />} />
       <Route path="restaurant/:id" element={<RestaurantDetailPage />} />
       <Route path="cart" element={<CartPage />} />
+      <Route path="checkout" element={<CheckoutPage />} />
+      <Route path="orders/:orderId" element={<OrderConfirmationPage />} />
       </Route>
 
       <Route 

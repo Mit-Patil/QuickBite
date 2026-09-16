@@ -1,0 +1,19 @@
+.wrapper {
+  max-width: 500px;
+}
+
+.itemList {
+  margin: 12px 0;
+  padding-left: 20px;
+}
+
+.summary {
+  margin: 16px 0;
+  padding-top: 12px;
+  border-top: 1px solid #eee;
+}
+
+.total {
+  font-size: 18px;
+  font-weight: 600;
+}
