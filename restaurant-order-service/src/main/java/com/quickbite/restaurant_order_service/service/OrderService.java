@@ -308,6 +308,15 @@ public class OrderService {
         
         validateStatusTransition(order.getStatus(), OrderStatus.CANCELLED);
         
+        List<OrderItem> orderItems = orderItemRepository.findByOrderId(order.getId());
+        for (OrderItem orderItem : orderItems) {
+            MenuItem menuItem = orderItem.getMenuItem();
+            if (!menuItem.isStockUnlimited()) {
+                menuItem.setStockQuantity(menuItem.getStockQuantity() + orderItem.getQuantity());
+                menuItemRepository.save(menuItem);
+            }
+        }
+        
         if(order.getStatus() == OrderStatus.CONFIRMED 
                 || order.getStatus() == OrderStatus.PREPARING
                 || order.getStatus() == OrderStatus.READY_FOR_PICKUP){
