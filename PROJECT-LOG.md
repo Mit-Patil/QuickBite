@@ -750,3 +750,22 @@
 - Order history page for customers (GET /api/orders) linking to individual order details
 - Restaurant-owner order management view (list orders for a restaurant, update status, cancel) -- backend already complete (getOrdersForRestaurant, updateOrderStatus, cancelOrder), frontend not yet built
 - Revisit Kafka scope for Checkpoint 1 now that the full customer ordering flow (browse → cart → checkout → order) is complete end-to-end
+
+## Session 37 — 2026-09-17
+**Worked on:**
+- Built OrdersPage.jsx (customer): lists all past orders (restaurant name, formatted date via toLocaleString, status, total), each linking to its existing OrderConfirmationPage; used a dynamic styles[`status-${status}`] lookup with a fallback class, set up for easy per-status coloring later without further JSX changes
+- Built OrdersPage.jsx (restaurant-owner): lists a restaurant's orders with items/total/cancellation reason, and only shows the valid next-status action button(s) per order (mirroring OrderService's validateStatusTransition map, duplicated intentionally on the frontend -- a known, accepted sync-risk trade-off, same category as the tax-rate constants in checkout) plus a Cancel Order action (window.prompt for reason) for cancellable statuses
+- Wired both into their respective route/nav structures (nested under /customer and /restaurant/:id)
+- Found and fixed a real gap: cancelling an order never restored decremented stock, so an order that consumed a menu item's last unit left it permanently marked "Out of stock" even after cancellation. Fixed by adding the same stock-restoration loop already used in placeOrder's compensateFailedPayment, applied over the order's snapshotted OrderItems (not CartItems, since the cart no longer exists at cancellation time)
+- Explicitly scoped and accepted a known limitation: stock is restored uniformly for any cancellable status (CONFIRMED/PREPARING/READY_FOR_PICKUP), not distinguishing "never started preparing" from "food already made and wasted" -- a more rigorous version would only restore from CONFIRMED, deferred as acceptable for current project scope
+- Verified full flow end-to-end: order progression through valid statuses only, cancellation with refund call firing correctly, and stock correctly restored and reflected back as available on the customer-facing menu after a cancellation
+
+**Decisions made:**
+- Frontend order-status action buttons intentionally duplicate the backend's transition rules as a plain JS object (NEXT_STATUSES) rather than fetching them dynamically -- acceptable duplication for now, flagged as needing a matching update if the backend's transition rules ever change
+
+**Blockers/issues:**
+- None remaining -- one real, previously-unnoticed stock-restoration gap found through actual testing (not by inspection) and fixed correctly using existing, proven logic
+
+**Next session starts with:**
+- Decide file/image upload approach (local disk vs. free-tier cloud storage e.g. Cloudinary) before building Customer profilePicUrl and Restaurant logoUrl upload
+- Still pending, no urgency: Kafka scope for Checkpoint 1; visual design pass now that core flows (auth, restaurant/menu management, cart, checkout, order lifecycle for both customer and owner) are functionally complete
