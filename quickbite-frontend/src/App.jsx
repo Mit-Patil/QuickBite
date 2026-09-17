@@ -21,6 +21,8 @@ import MenuItemFormPage from './pages/restaurant-owner/MenuItemFormPage';
 import CartPage from './pages/customer/CartPage';
 import CheckoutPage from './pages/customer/CheckoutPage';
 import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
+import OrdersPage from './pages/customer/OrdersPage';
+import RestaurantOrdersPage from './pages/restaurant-owner/OrdersPage';
 
 function App() {
   return (
@@ -74,6 +76,7 @@ function App() {
       <Route path="cart" element={<CartPage />} />
       <Route path="checkout" element={<CheckoutPage />} />
       <Route path="orders/:orderId" element={<OrderConfirmationPage />} />
+      <Route path="orders" element={<OrdersPage />} />
       </Route>
 
       <Route 
@@ -91,6 +94,7 @@ function App() {
         <Route path=":id/menu" element={<MenuPage />} />
         <Route path=":id/menu/new" element={<MenuItemFormPage />} />
         <Route path=":id/menu/:menuItemId/edit" element={<MenuItemFormPage />} />
+        <Route path=":id/orders" element={<RestaurantOrdersPage />} />
       </Route>  
 
       <Route 

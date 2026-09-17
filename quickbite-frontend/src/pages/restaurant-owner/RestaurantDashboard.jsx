@@ -45,6 +45,7 @@ function RestaurantDashboard() {
               <div className={styles.actions}>
                 <Link to={`/restaurant/${r.id}/edit`}>Edit</Link>
                 <Link to={`/restaurant/${r.id}/menu`}>Manage Menu</Link>
+                <Link to={`/restaurant/${r.id}/orders`}>View Orders</Link>
               </div>
             </div>
           ))}
