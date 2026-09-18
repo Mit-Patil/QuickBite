@@ -8,6 +8,8 @@ import ErrorMessage from '../../components/ErrorMessage';
 import styles from '../../styles/ProfilePage.module.css';
 import VariantManager from './VariantManager';
 import AddonManager from './AddonManager';
+import ImageUpload from '../../components/ImageUpload';
+import { uploadMenuItemPicture } from '../../api/uploadService';
 
 function MenuItemFormPage() {
   const { id, menuItemId } = useParams();
@@ -18,6 +20,7 @@ function MenuItemFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const [imageUrl, setImageUrl] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [price, setPrice] = useState('');
@@ -49,6 +52,7 @@ function MenuItemFormPage() {
       setIsAvailable(item.isAvailable);
       setVariants(item.variants);
       setAddons(item.addons);
+      setImageUrl(item.imageUrl || '');
     } catch (err) {
       setError(err.message);
     } finally {
@@ -115,6 +119,15 @@ function MenuItemFormPage() {
       <ErrorMessage message={error} />
 
       <form onSubmit={handleSubmit} className={styles.form}>
+
+        {isEditMode &&
+          <ImageUpload
+            currentImageUrl={imageUrl}
+            uploadFn={(file) => uploadMenuItemPicture(menuItemId, file)}
+            onUploaded={(updated) => setImageUrl(updated.imageUrl)}
+          />  
+        }
+
         <Input label="Name" name="name" value={name} onChange={(e) => setName(e.target.value)} required />
         <Input label="Description" name="description" value={description} onChange={(e) => setDescription(e.target.value)} />
         <Input label="Price" name="price" type="number" value={price} onChange={(e) => setPrice(e.target.value)} required />

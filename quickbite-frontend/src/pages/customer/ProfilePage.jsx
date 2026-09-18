@@ -5,6 +5,8 @@ import ErrorMessage from '../../components/ErrorMessage';
 import Button from '../../components/Button';
 import styles from '../../styles/ProfilePage.module.css';
 import Select from "../../components/Select";
+import ImageUpload from "../../components/ImageUpload";
+import { uploadCustomerProfilePicture } from "../../api/uploadService";
 
 function ProfilePage(){
     const [loading, setLoading] = useState(true);
@@ -12,6 +14,7 @@ function ProfilePage(){
     const [success, setSuccess] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
+    const [profilePicUrl, setProfilePicUrl] = useState('');
     const [fullName, setFullName] = useState('');
     const [phone, setPhone] = useState('');
     const [gender, setGender] = useState('');
@@ -29,6 +32,7 @@ function ProfilePage(){
             setPhone(data.phone || '');
             setGender(data.gender || '');
             setDateOfBirth(data.dateOfBirth || '');
+            setProfilePicUrl(data.profilePicUrl || '');
         } catch (err) {
             setError(err.message);
         }finally{
@@ -62,6 +66,12 @@ function ProfilePage(){
 
             <form onSubmit={handleSubmit} className={styles.form}>
 
+                <ImageUpload
+                    currentImageUrl={profilePicUrl}
+                    uploadFn={uploadCustomerProfilePicture}
+                    onUploaded={(updated) => setProfilePicUrl(updated.profilePicUrl)}
+                />
+                
                 <Input label="Full Name" name="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
                 <Input label="Phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
 
