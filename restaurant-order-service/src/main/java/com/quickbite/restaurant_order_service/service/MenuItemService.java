@@ -1,5 +1,7 @@
 package com.quickbite.restaurant_order_service.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.quickbite.restaurant_order_service.dto.AttachAddonRequest;
 import com.quickbite.restaurant_order_service.dto.CreateItemAddonRequest;
 import com.quickbite.restaurant_order_service.dto.CreateItemVariantRequest;
@@ -21,12 +23,15 @@ import com.quickbite.restaurant_order_service.repository.ItemVariantRepository;
 import com.quickbite.restaurant_order_service.repository.MenuItemAddonRepository;
 import com.quickbite.restaurant_order_service.repository.MenuItemRepository;
 import com.quickbite.restaurant_order_service.repository.RestaurantRepository;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 
 @Service
@@ -38,7 +43,7 @@ public class MenuItemService {
     private final ItemVariantRepository itemVariantRepository;
     private final ItemAddonRepository itemAddonRepository;
     private final MenuItemAddonRepository menuItemAddonRepository;
-    
+    private final Cloudinary cloudinary;
     
     public MenuItemResponse createMenuItem(UUID restuarantId, UUID ownerId, CreateMenuItemRequest request){
         
@@ -132,6 +137,29 @@ public class MenuItemService {
         return toResponse(saved);
     }
      
+    public MenuItemResponse uploadMenuItemPicture(UUID menuItemId, UUID ownerId, MultipartFile file){
+        MenuItem item = menuItemRepository.findById(menuItemId)
+                .orElseThrow(() -> new IllegalArgumentException("Menu item not found"));
+        
+        if(!item.getRestaurant().getOwnerId().equals(ownerId)){
+            throw new IllegalArgumentException("You dont own this menu item");
+        }
+        
+        Map uploadResult;
+        try {
+            uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("folder", "quickbite/menu-item-pictures"));
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to upload image");
+        }
+        
+        String itemImageUrl = (String) uploadResult.get("secure_url");
+        
+        item.setImageUrl(itemImageUrl);
+        menuItemRepository.save(item);
+        
+        return toResponse(item);
+        
+    } 
      
       public ItemVariantResponse addVariant(UUID menuItemId, UUID ownerId, CreateItemVariantRequest request) {
         MenuItem item = menuItemRepository.findById(menuItemId)

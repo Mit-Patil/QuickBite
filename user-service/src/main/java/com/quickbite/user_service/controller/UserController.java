@@ -22,6 +22,7 @@ import java.util.UUID;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/users")
@@ -113,6 +114,24 @@ public class UserController {
     @PutMapping("/me/addresses/{addressId}")
     public ResponseEntity<AddressResponse> updateAddress(@PathVariable UUID addressId,@RequestBody AddressRequest request){
         return  ResponseEntity.ok(userService.updateAddress(getCurrentUserId(), addressId, request));
+    }
+    
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @PostMapping("/me/profile-picture")
+    public ResponseEntity<CustomerProfileResponse> uploadProfilePicture(@RequestParam("file") MultipartFile file){
+        return ResponseEntity.ok(userService.uploadProfilePicture(getCurrentUserId(), file));
+    }
+
+    @PreAuthorize("hasRole('DELIVERY_PARTNER')")
+    @PostMapping("/me/delivery-partner-picture")
+    public ResponseEntity<DeliveryPartnerProfileResponse> uploadDeliveryPartnerPicture(@RequestParam("file") MultipartFile file){
+        return ResponseEntity.ok(userService.uploadDeliveryPartnerPicture(getCurrentUserId(), file));
+    }
+
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    @PostMapping("/me/restaurant-logo")
+    public ResponseEntity<RestaurantOwnerProfileResponse> uploadRestaurantLogo(@RequestParam("file") MultipartFile file){
+        return ResponseEntity.ok(userService.uploadRestaurantLogo(getCurrentUserId(), file));
     }
     
 }

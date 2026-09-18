@@ -1,6 +1,8 @@
 
 package com.quickbite.user_service.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.quickbite.user_service.dto.AddressRequest;
 import com.quickbite.user_service.dto.AddressResponse;
 import com.quickbite.user_service.dto.CustomerProfileResponse;
@@ -26,11 +28,14 @@ import com.quickbite.user_service.repository.CustomerProfileRepository;
 import com.quickbite.user_service.repository.DeliveryPartnerProfileRepository;
 import com.quickbite.user_service.repository.RestaurantOwnerProfileRepository;
 import com.quickbite.user_service.security.JwtService;
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 public class UserService {
@@ -42,6 +47,7 @@ public class UserService {
     private final AddressRepository addressRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final Cloudinary cloudinary;
 
     public UserService(UserRepository userRepository,
             CustomerProfileRepository customerProfileRepository,
@@ -49,7 +55,8 @@ public class UserService {
             RestaurantOwnerProfileRepository restaurantOwnerProfileRepository,
             PasswordEncoder passwordEncoder, 
             JwtService jwtService,
-            AddressRepository addressRepository) {
+            AddressRepository addressRepository,
+            Cloudinary cloudinary) {
         this.userRepository = userRepository;
         this.customerProfileRepository = customerProfileRepository;
         this.deliveryPartnerProfileRepository = deliveryPartnerProfileRepository;
@@ -57,6 +64,7 @@ public class UserService {
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.addressRepository = addressRepository;
+        this.cloudinary = cloudinary;
     }
  
     
@@ -197,6 +205,27 @@ public class UserService {
         
     }
     
+    public CustomerProfileResponse uploadProfilePicture(UUID userId, MultipartFile file) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Map uploadResult;
+        try {
+            uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("folder", "quickbite/customer-profiles"));
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to upload image");
+        }
+
+        String imageUrl = (String) uploadResult.get("secure_url");
+
+        CustomerProfile profile = customerProfileRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Profile not found"));
+        profile.setProfilePicUrl(imageUrl);
+        customerProfileRepository.save(profile);
+
+        return new CustomerProfileResponse(user, profile);
+    }
+
     @Transactional
     public DeliveryPartnerProfileResponse updateDeliveryPartnerProfile(UUID userId, UpdateDeliveryPartnerProfileRequest request){
         User user = userRepository.findById(userId)
@@ -222,6 +251,29 @@ public class UserService {
         
         return new DeliveryPartnerProfileResponse(user,profile);
     }
+    
+    public DeliveryPartnerProfileResponse uploadDeliveryPartnerPicture(UUID userId, MultipartFile file){
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                
+        Map uploadResult;
+        try {
+            uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("folder", "quickbite/delivery-partner-profiles"));
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to uplaod image");
+        }
+              
+        String imgUrl = (String) uploadResult.get("secure_url");
+        
+        DeliveryPartnerProfile profile = deliveryPartnerProfileRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("profile not found"));
+        
+        profile.setProfilePicUrl(imgUrl);
+        deliveryPartnerProfileRepository.save(profile);
+        
+        return new DeliveryPartnerProfileResponse(user, profile);
+    }
 
     @Transactional
     public RestaurantOwnerProfileResponse updateRestaunrantOwnerProfile(UUID userId, UpdateRestaurantOwnerProfileRequest request){
@@ -242,6 +294,28 @@ public class UserService {
         
         if(request.getBusinessName() != null) profile.setBusinessName(request.getBusinessName());
         if(request.getLogoUrl() != null) profile.setLogoUrl(request.getLogoUrl());
+        
+        restaurantOwnerProfileRepository.save(profile);
+        
+        return new RestaurantOwnerProfileResponse(user, profile);
+    }
+    
+    public RestaurantOwnerProfileResponse uploadRestaurantLogo(UUID userId, MultipartFile file){
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        
+        Map uploadResult;
+        try {
+            uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("folder", "quickbite/restaurant-logos"));
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to upload logo image.");
+        }
+        
+        String logoUrl = (String) uploadResult.get("secure_url");
+        
+        RestaurantOwnerProfile profile = restaurantOwnerProfileRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Profile not found"));
+        profile.setLogoUrl(logoUrl);
         
         restaurantOwnerProfileRepository.save(profile);
         

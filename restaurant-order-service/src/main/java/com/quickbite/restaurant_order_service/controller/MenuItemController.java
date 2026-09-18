@@ -11,6 +11,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -98,6 +99,12 @@ public class MenuItemController {
         UUID ownerId = getCurrentUserId();
         menuItemService.detachAddon(itemId, addonId, ownerId);
         return ResponseEntity.noContent().build();
+    }
+    
+    @PostMapping("/api/menu-items/{id}/picture")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<MenuItemResponse> uploadPicture(@PathVariable UUID id, @RequestParam("file") MultipartFile file){
+        return ResponseEntity.ok(menuItemService.uploadMenuItemPicture(id, getCurrentUserId(), file));
     }
 
     private UUID getCurrentUserId() {
