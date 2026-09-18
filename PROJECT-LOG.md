@@ -769,3 +769,24 @@
 **Next session starts with:**
 - Decide file/image upload approach (local disk vs. free-tier cloud storage e.g. Cloudinary) before building Customer profilePicUrl and Restaurant logoUrl upload
 - Still pending, no urgency: Kafka scope for Checkpoint 1; visual design pass now that core flows (auth, restaurant/menu management, cart, checkout, order lifecycle for both customer and owner) are functionally complete
+
+## Session 38 — 2026-09-18
+**Worked on:**
+- Backend: added Cloudinary integration across both services -- CloudinaryConfig bean (cloud-name/api-key/api-secret from .env via application.yml) in user-service and restaurant-order-service, cloudinary-http44 SDK dependency
+- Added four upload endpoints/service methods, each uploading to its own Cloudinary folder (quickbite/customer-profiles, quickbite/delivery-partner-profiles, quickbite/restaurant-logos, quickbite/menu-item-pictures): Customer profile picture, Delivery-partner profile picture, Restaurant-owner logo, MenuItem picture -- all update-only (not part of any Create request), consistent with the existing design decision that registration/creation forms stay minimal and picture upload is always a subsequent action once the entity exists
+- Fixed a real bug during review: all three initial UserController upload endpoints were mapped to the identical path /me/profile-picture -- would have failed to start with a mapping conflict; corrected to distinct role-appropriate paths
+- Frontend: built uploadService.js (one function per entity, each wrapping the file in FormData) and a single shared ImageUpload.jsx component (file picker, instant local preview via URL.createObjectURL, explicit Upload button, loading/error state) used identically across all four upload spots via an injected uploadFn prop and an onUploaded callback -- parent pages own the resulting URL state, the component owns only the picking/previewing/uploading mechanics
+- Wired ImageUpload into all four relevant pages: Customer/Delivery-partner/Restaurant-owner ProfilePage.jsx and MenuItemFormPage.jsx (wrapped in an inline arrow function to pass menuItemId alongside the file)
+- Verified full upload flow end-to-end for all four entities: preview shows instantly on file selection, real Cloudinary URL persists after upload and survives a page refresh
+
+**Decisions made:**
+- Confirmed picture upload stays update-only, never part of a Create flow, since a file can't travel in the same JSON body as other creation fields and the entity's real ID is required before any upload endpoint can be called -- two sequential requests either way, so no value in trying to combine them
+- Deliberately did not build a one-to-many "multiple photos per menu item" feature -- current single imageUrl column per entity is sufficient for project scope; a separate images table is a clean, well-scoped future addition if ever needed, not a rework
+- Scoped next map-related work as geocoding only (Nominatim, matching the existing free Leaflet+OSM architecture decision) to fill in missing latitude/longitude on Customer/Restaurant/Delivery-partner records -- actual map display (pins, routes) treated as a separate, later feature once coordinates exist
+
+**Blockers/issues:**
+- None remaining -- one real routing-conflict bug found and fixed before it could cause a startup failure
+
+**Next session starts with:**
+- Geocoding integration via Nominatim: convert typed addresses into stored latitude/longitude for Customer addresses first, then Restaurant and Delivery-partner
+- Still pending: Kafka scope for Checkpoint 1; visual design pass
