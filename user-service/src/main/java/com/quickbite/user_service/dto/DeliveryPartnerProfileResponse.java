@@ -21,7 +21,8 @@ public class DeliveryPartnerProfileResponse {
     private String profilePicUrl;
     private String verificationStatus;
     private boolean available;
-    
+    private Double currentLat;
+    private Double currentLng;
     
         public DeliveryPartnerProfileResponse(User user, DeliveryPartnerProfile profile) {
         this.id = user.getId();
@@ -36,6 +37,8 @@ public class DeliveryPartnerProfileResponse {
         this.profilePicUrl = profile.getProfilePicUrl();
         this.verificationStatus = profile.getVerificationStatus().name();
         this.available = profile.isAvailable();
+        this.currentLat = profile.getCurrentLat();
+        this.currentLng = profile.getCurrentLng();
     }
 
     public UUID getId() {
@@ -81,6 +84,12 @@ public class DeliveryPartnerProfileResponse {
     public boolean isAvailable() {
         return available;
     }
-        
-    
+
+    public Double getCurrentLat() {
+        return currentLat;
+    }
+
+    public Double getCurrentLng() {
+        return currentLng;
+    }
 }

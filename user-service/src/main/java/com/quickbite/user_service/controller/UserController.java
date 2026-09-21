@@ -13,6 +13,7 @@ import com.quickbite.user_service.dto.RegisterRestaurantOwnerRequest;
 import com.quickbite.user_service.dto.RestaurantOwnerProfileResponse;
 import com.quickbite.user_service.dto.UpdateCustomerProfileRequest;
 import com.quickbite.user_service.dto.UpdateDeliveryPartnerProfileRequest;
+import com.quickbite.user_service.dto.UpdateLocationRequest;
 import com.quickbite.user_service.dto.UpdateRestaurantOwnerProfileRequest;
 import com.quickbite.user_service.dto.UserResponse;
 import com.quickbite.user_service.service.UserService;
@@ -132,6 +133,14 @@ public class UserController {
     @PostMapping("/me/restaurant-logo")
     public ResponseEntity<RestaurantOwnerProfileResponse> uploadRestaurantLogo(@RequestParam("file") MultipartFile file){
         return ResponseEntity.ok(userService.uploadRestaurantLogo(getCurrentUserId(), file));
+    }
+    
+    
+    @PutMapping("/me/delivery-partner/location")
+    @PreAuthorize("hasRole('DELIVERY_PARTNER')")
+    public ResponseEntity<DeliveryPartnerProfileResponse> updateLocation(
+    @Valid @RequestBody UpdateLocationRequest request){
+        return ResponseEntity.ok(userService.updateDeliveryPartnerLocation(getCurrentUserId(), request));
     }
     
 }

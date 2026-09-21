@@ -15,6 +15,7 @@ import com.quickbite.user_service.dto.RegisterRestaurantOwnerRequest;
 import com.quickbite.user_service.dto.RestaurantOwnerProfileResponse;
 import com.quickbite.user_service.dto.UpdateCustomerProfileRequest;
 import com.quickbite.user_service.dto.UpdateDeliveryPartnerProfileRequest;
+import com.quickbite.user_service.dto.UpdateLocationRequest;
 import com.quickbite.user_service.dto.UpdateRestaurantOwnerProfileRequest;
 import com.quickbite.user_service.dto.UserResponse;
 import com.quickbite.user_service.entity.Address;
@@ -36,6 +37,7 @@ import java.util.UUID;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import java.util.regex.Pattern;
 
 @Service
 public class UserService {
@@ -48,7 +50,12 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final Cloudinary cloudinary;
+        
+    private static final Pattern PINCODE_PATTERN = Pattern.compile("^[1-9][0-9]{5}$");
 
+    private static final double INDIA_MIN_LAT = 6.0, INDIA_MAX_LAT = 38.0;
+    private static final double INDIA_MIN_LNG = 68.0, INDIA_MAX_LNG = 98.0;
+    
     public UserService(UserRepository userRepository,
             CustomerProfileRepository customerProfileRepository,
             DeliveryPartnerProfileRepository deliveryPartnerProfileRepository,
@@ -252,6 +259,27 @@ public class UserService {
         return new DeliveryPartnerProfileResponse(user,profile);
     }
     
+    @Transactional
+    public DeliveryPartnerProfileResponse updateDeliveryPartnerLocation(UUID userId, UpdateLocationRequest request) {
+        validateCoordinates(request.getLatitude(), request.getLongitude());
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (user.getRole() != User.Role.DELIVERY_PARTNER) {
+            throw new IllegalArgumentException("This Endpoint is only for delivery partner accounts");
+        }
+
+        DeliveryPartnerProfile profile = deliveryPartnerProfileRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("Profile not found"));
+
+        profile.setCurrentLat(request.getLatitude());
+        profile.setCurrentLng(request.getLongitude());
+        deliveryPartnerProfileRepository.save(profile);
+
+        return new DeliveryPartnerProfileResponse(user, profile);
+    }
+    
     public DeliveryPartnerProfileResponse uploadDeliveryPartnerPicture(UUID userId, MultipartFile file){
         
         User user = userRepository.findById(userId)
@@ -327,6 +355,9 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("user not found"));
         
+        validateCoordinates(request.getLatitude(), request.getLongitude());
+        validatePincode(request.getPincode());
+        
         Address address = new Address();
         address.setUser(user);
         address.setLabel(request.getLabel() != null
@@ -378,6 +409,25 @@ public class UserService {
         }
     }
     
+    private void validateCoordinates(Double latitude, Double longitude) {
+        if (latitude == null || longitude == null) {
+            throw new IllegalArgumentException("Please pin your location on the map");
+        }
+        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            throw new IllegalArgumentException("Invalid map coordinates");
+        }
+        if (latitude < INDIA_MIN_LAT || latitude > INDIA_MAX_LAT
+                || longitude < INDIA_MIN_LNG || longitude > INDIA_MAX_LNG) {
+            throw new IllegalArgumentException("Location must be within India");
+        }
+    }
+
+    private void validatePincode(String pincode) {
+        if (pincode == null || !PINCODE_PATTERN.matcher(pincode).matches()) {
+            throw new IllegalArgumentException("Pincode must be a valid 6-digit number");
+        }
+    }
+    
     @Transactional
     public AddressResponse updateAddress(UUID userId, UUID addressId, AddressRequest request){
         Address address = addressRepository.findById(addressId)
@@ -388,12 +438,22 @@ public class UserService {
         }
         
         if(request.getLabel() != null) address.setLabel(Address.Label.valueOf(request.getLabel().toUpperCase()));
-        if (request.getAddressLine() != null) address.setAddressLine(request.getAddressLine());
+        if (request.getAddressLine() != null && !request.getAddressLine().isBlank()) {
+            address.setAddressLine(request.getAddressLine());
+        }
         if (request.getLandmark() != null) address.setLandmark(request.getLandmark());
-        if (request.getCity() != null) address.setCity(request.getCity());
-        if (request.getPincode() != null) address.setPincode(request.getPincode());
-        if (request.getLatitude() != null) address.setLatitude(request.getLatitude());
-        if (request.getLongitude() != null) address.setLongitude(request.getLongitude());
+        if (request.getCity() != null && !request.getCity().isBlank()) {
+            address.setCity(request.getCity());
+        }
+        if (request.getPincode() != null && !request.getPincode().isBlank()) {
+            validatePincode(request.getPincode());
+            address.setPincode(request.getPincode());
+        }
+        if (request.getLatitude() != null || request.getLongitude() != null) {
+            validateCoordinates(request.getLatitude(), request.getLongitude());
+            address.setLatitude(request.getLatitude());
+            address.setLongitude(request.getLongitude());
+        }
         
         if(Boolean.TRUE.equals(request.getIsDefault())){
             clearExistingDefault(userId);
