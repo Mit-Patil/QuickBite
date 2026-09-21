@@ -32,3 +32,7 @@ export function updateRestaurantOwnerProfile(data){
 export function updateDeliveryPartnerProfile(data) {
   return userClient.put('/api/users/me/delivery-partner', data);
 }
+
+export function updateDeliveryPartnerLocation(data) {
+  return userClient.put('/api/users/me/delivery-partner/location', data);
+}

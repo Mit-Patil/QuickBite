@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getRestaurantById, createRestaurant, updateRestaurant } from '../../api/restaurantService';
 import Input from '../../components/Input';
@@ -7,6 +7,7 @@ import ErrorMessage from '../../components/ErrorMessage';
 import styles from '../../styles/ProfilePage.module.css';
 import Select from '../../components/Select';
 import Checkbox from '../../components/Checkbox';
+import LocationPicker from '../../components/LocationPicker';
 
 function RestaurantFormPage() {
   const { id } = useParams();
@@ -29,6 +30,9 @@ function RestaurantFormPage() {
   const [closingTime, setClosingTime] = useState('');
   const [isOpen, setIsOpen] = useState(true);
 
+  const [pin, setPin] = useState(null);
+  const touched = useRef({ city: isEditMode, pincode: isEditMode });
+
   useEffect(() =>{
     if(isEditMode) loadRestaurant();
   },[id]);
@@ -44,6 +48,11 @@ function RestaurantFormPage() {
         setAddressLine(r.addressLine);
         setCity(r.city);
         setPincode(r.pincode);
+        setPin(
+          r.latitude != null && r.longitude != null
+            ? { lat: r.latitude, lng: r.longitude }
+            : null
+        );
         setTwentyFourSeven(r.twentyFourSeven);
         setOpeningTime(r.openingTime || '');
         setClosingTime(r.closingTime || '');
@@ -55,15 +64,27 @@ function RestaurantFormPage() {
     }
   }
 
+  function handleSuggestion(place) {
+    if (!touched.current.city) setCity(place.city);
+    if (!touched.current.pincode) setPincode(place.pincode);
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
+
+    if (!pin) {
+      setError('Please pin the restaurant location on the map');
+      return;
+    }
+
     setSubmitting(true);
 
     const data = {
       name, description, cuisineType, restaurantType,
       addressLine, city, pincode, twentyFourSeven,
+      latitude: pin.lat,
+      longitude: pin.lng,
       openingTime: twentyFourSeven ? null : openingTime,
       closingTime: twentyFourSeven ? null : closingTime,
     };
@@ -92,6 +113,10 @@ function RestaurantFormPage() {
         <ErrorMessage message={error} />
 
         <form onSubmit={handleSubmit} className={styles.form}>
+
+              <LocationPicker value={pin} onChange={setPin} onSuggestion={handleSuggestion} />
+              <p>City and pincode are filled from the map. Please check them.</p>
+
             <Input label="Name" name="name" value={name} onChange={(e) => setName(e.target.value)} required />
             <Input label="Description" name="description" value={description} onChange={(e) => setDescription(e.target.value)} />
             <Input label="Cuisine Type" name="cuisineType" value={cuisineType} onChange={(e) => setCuisineType(e.target.value)} />
@@ -107,9 +132,23 @@ function RestaurantFormPage() {
               ]}
             />
 
-            <Input label="Address Line" name="addressLine" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} required />
-            <Input label="City" name="city" value={city} onChange={(e) => setCity(e.target.value)} required />
-            <Input label="Pincode" name="pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
+              <Input label="Address Line" name="addressLine" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} required />
+              <Input
+                label="City"
+                name="city"
+                value={city}
+                onChange={(e) => { touched.current.city = true; setCity(e.target.value); }}
+                required
+              />
+              <Input
+                label="Pincode"
+                name="pincode"
+                value={pincode}
+                onChange={(e) => { touched.current.pincode = true; setPincode(e.target.value); }}
+                maxLength={6}
+                inputMode="numeric"
+                required
+              />
 
             <Checkbox label="Open 24/7" name="twentyFourSeven" checked={twentyFourSeven} onChange={(e) => setTwentyFourSeven(e.target.checked)} />
             

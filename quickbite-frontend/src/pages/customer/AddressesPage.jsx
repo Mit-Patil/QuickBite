@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { getAddress, addAddress, deleteAddress, updateAddress } from "../../api/addressService";
 import Input from "../../components/Input";
 import Button from "../../components/Button";
 import ErrorMessage from "../../components/ErrorMessage";
 import styles from  './AddressesPage.module.css';
+import LocationPicker from "../../components/LocationPicker";
 
 function AddressesPage(){
   const [addresses, setAddresses] = useState([]);
@@ -17,6 +18,10 @@ function AddressesPage(){
   const [pincode, setPincode] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+
+  const [pin, setPin] = useState(null);
+  const [formKey, setFormKey] = useState(0);
+  const touched = useRef({ city: false, pincode: false });
 
   useEffect(() =>{
     loadAddresses();
@@ -33,42 +38,65 @@ function AddressesPage(){
     }
   }
 
-  function resetForm(){
-    setEditingId(null);
-    setAddressLine('');
-    setLandmark('');
-    setCity('');
-    setPincode('');
-  }
-
-  function startEdit(address){
-    setEditingId(address.id);
-    setAddressLine(address.addressLine);
-    setLandmark(address.landmark);
-    setCity(address.city);
-    setPincode(address.pincode);
-  }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setFormError('');
-    setSubmitting(true);
-    const data = { addressLine, landmark, city, pincode };
-
-    try {
-        if(editingId){
-            await updateAddress(editingId, data);
-        }else{
-        await addAddress(data);
-        }
-        resetForm();
-        await loadAddresses();
-    } catch (err) {
-        setFormError(err.message);
-    }finally{
-        setSubmitting(false);
+    function resetForm(){
+        setEditingId(null);
+        setAddressLine('');
+        setLandmark('');
+        setCity('');
+        setPincode('');
+        setPin(null);
+        setFormError('');
+        touched.current = { city: false, pincode: false };
+        setFormKey((k) => k + 1);
     }
-  }
+
+    function startEdit(address){
+        setEditingId(address.id);
+        setAddressLine(address.addressLine);
+        setLandmark(address.landmark || '');
+        setCity(address.city);
+        setPincode(address.pincode);
+        setPin(
+            address.latitude != null && address.longitude != null
+                ? { lat: address.latitude, lng: address.longitude }
+                : null
+        );
+        setFormError('');
+        touched.current = { city: true, pincode: true };
+        setFormKey((k) => k + 1);
+    }
+
+    function handleSuggestion(place) {
+        if (!touched.current.city) setCity(place.city);
+        if (!touched.current.pincode) setPincode(place.pincode);
+        }
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+        setFormError('');
+
+        if (!pin) {
+            setFormError('Please pin your location on the map');
+            return;
+        }
+
+        setSubmitting(true);
+        const data = { addressLine, landmark, city, pincode, latitude: pin.lat, longitude: pin.lng };
+
+        try {
+            if(editingId){
+                await updateAddress(editingId, data);
+            }else{
+                await addAddress(data);
+            }
+            resetForm();
+            await loadAddresses();
+        } catch (err) {
+            setFormError(err.message);
+        }finally{
+            setSubmitting(false);
+        }
+    }
 
 
   async function handleDelete(id) {
@@ -101,6 +129,7 @@ function AddressesPage(){
                 <li key={address.id} className={styles.item}>
                     <p>{address.addressLine}, {address.city} - {address.pincode}</p>
                     {address.landmark && <p>Landmark: {address.landmark}</p>}
+                    {address.latitude == null && <p>Location not pinned. Click Edit to add it.</p>}
                     {address.isDefault ? (
                         <span className={styles.defaultBadge}>default</span>
                     ):(
@@ -116,19 +145,36 @@ function AddressesPage(){
         <form onSubmit={handleSubmit} className={styles.form}>
             <ErrorMessage message={formError} />
 
+            <LocationPicker key={formKey} value={pin} onChange={setPin} onSuggestion={handleSuggestion} />
+
+            <p>City and pincode are filled from the map. Please check them.</p>
+
             <Input label="Address Line" name="addressLine" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} required />
             <Input label="Landmark" name="landmark" value={landmark} onChange={(e) => setLandmark(e.target.value)} />
-            <Input label="City" name="city" value={city} onChange={(e) => setCity(e.target.value)} required />
-            <Input label="Pincode" name="pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} required />
-        
-            <Button loading={loading} loadingText={editingId ? 'Updating...' : 'Adding ...'}>
+            <Input
+                label="City"
+                name="city"
+                value={city}
+                onChange={(e) => { touched.current.city = true; setCity(e.target.value); }}
+                required
+            />
+            <Input
+                label="Pincode"
+                name="pincode"
+                value={pincode}
+                onChange={(e) => { touched.current.pincode = true; setPincode(e.target.value); }}
+                maxLength={6}
+                inputMode="numeric"
+                required
+            />
+
+            <Button loading={submitting} loadingText={editingId ? 'Updating...' : 'Adding ...'}>
                 {editingId ? 'Update Address' : 'Add Address'}
             </Button>
 
             {editingId && (
                 <button type="button" onClick={resetForm}>Cancel</button>
             )}
-
         </form>
     </div>
   );

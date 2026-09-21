@@ -23,6 +23,7 @@ import CheckoutPage from './pages/customer/CheckoutPage';
 import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
 import OrdersPage from './pages/customer/OrdersPage';
 import RestaurantOrdersPage from './pages/restaurant-owner/OrdersPage';
+import MapTest from './pages/customer/MapTest';
 
 function App() {
   return (
@@ -77,6 +78,7 @@ function App() {
       <Route path="checkout" element={<CheckoutPage />} />
       <Route path="orders/:orderId" element={<OrderConfirmationPage />} />
       <Route path="orders" element={<OrdersPage />} />
+      <Route path="maptest" element={<MapTest />} />
       </Route>
 
       <Route 
