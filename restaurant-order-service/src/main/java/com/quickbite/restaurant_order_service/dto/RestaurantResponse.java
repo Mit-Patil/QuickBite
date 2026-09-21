@@ -22,6 +22,8 @@ public class RestaurantResponse {
     private boolean twentyFourSeven;
     private String openingTime;
     private String closingTime;
+    private Double latitude;
+    private Double longitude;
     
     @JsonProperty("isOpen")
     private boolean isOpen;

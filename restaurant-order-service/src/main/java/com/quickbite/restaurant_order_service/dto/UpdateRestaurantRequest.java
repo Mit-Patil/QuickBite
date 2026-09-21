@@ -15,4 +15,6 @@ public class UpdateRestaurantRequest {
     private String city;
     private String pincode;
     private String restaurantType;
+    private Double latitude;
+    private Double longitude;
 }

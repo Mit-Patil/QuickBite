@@ -6,6 +6,7 @@ import com.quickbite.restaurant_order_service.dto.UpdateRestaurantRequest;
 import com.quickbite.restaurant_order_service.entity.Restaurant;
 import com.quickbite.restaurant_order_service.entity.Restaurant.RestaurantType;
 import com.quickbite.restaurant_order_service.repository.RestaurantRepository;
+import com.quickbite.restaurant_order_service.util.GeoValidator;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
@@ -24,6 +25,9 @@ public class RestaurantService {
     
     public RestaurantResponse createRestaurant(UUID ownerId, CreateRestaurantRequest request){
     
+        GeoValidator.validateCoordinates(request.getLatitude(), request.getLongitude());
+        GeoValidator.validatePincode(request.getPincode());
+
         Restaurant restaurant = Restaurant.builder()
                 .ownerId(ownerId)
                 .name(request.getName())
@@ -71,12 +75,26 @@ public class RestaurantService {
             throw new IllegalArgumentException("You Do not own this Restaurant");
         }
         
-        if(request.getName() != null) restaurant.setName(request.getName());
-        if(request.getDescription() != null) restaurant.setDescription(request.getDescription());
-        if(request.getCuisineType() != null) restaurant.setCuisineType(request.getCuisineType());
-        if(request.getAddressLine() != null) restaurant.setAddressLine(request.getAddressLine());
-        if(request.getCity() != null) restaurant.setCity(request.getCity());
-        if(request.getPincode() != null) restaurant.setPincode(request.getPincode());
+        if (request.getName() != null && !request.getName().isBlank()) {
+            restaurant.setName(request.getName());
+        }
+        if (request.getDescription() != null) restaurant.setDescription(request.getDescription());
+        if (request.getCuisineType() != null) restaurant.setCuisineType(request.getCuisineType());
+        if (request.getAddressLine() != null && !request.getAddressLine().isBlank()) {
+            restaurant.setAddressLine(request.getAddressLine());
+        }
+        if (request.getCity() != null && !request.getCity().isBlank()) {
+            restaurant.setCity(request.getCity());
+        }
+        if (request.getPincode() != null && !request.getPincode().isBlank()) {
+            GeoValidator.validatePincode(request.getPincode());
+            restaurant.setPincode(request.getPincode());
+        }
+        if (request.getLatitude() != null || request.getLongitude() != null) {
+            GeoValidator.validateCoordinates(request.getLatitude(), request.getLongitude());
+            restaurant.setLatitude(request.getLatitude());
+            restaurant.setLongitude(request.getLongitude());
+        }
         if (request.getOpeningTime() != null && !request.getOpeningTime().isBlank()){
             restaurant.setOpeningTime(LocalTime.parse(request.getOpeningTime()));
         }
@@ -118,6 +136,8 @@ public class RestaurantService {
                 .addressLine(r.getAddressLine())
                 .city(r.getCity())
                 .pincode(r.getPincode())
+                .latitude(r.getLatitude())
+                .longitude(r.getLongitude())
                 .twentyFourSeven(r.isTwentyFourSeven())
                 .openingTime(r.getOpeningTime() != null ? r.getOpeningTime().toString() : null)
                 .closingTime(r.getClosingTime() != null ? r.getClosingTime().toString() : null)
