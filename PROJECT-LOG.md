@@ -790,3 +790,41 @@
 **Next session starts with:**
 - Geocoding integration via Nominatim: convert typed addresses into stored latitude/longitude for Customer addresses first, then Restaurant and Delivery-partner
 - Still pending: Kafka scope for Checkpoint 1; visual design pass
+
+## Session 39 — 2026-09-21
+**Worked on:**
+- Designed the location flow around pin-drop (Swiggy/Zomato style): browser GPS button + area search + draggable Leaflet pin, with reverse geocoding filling city/pincode as editable suggestions. Fully free stack (Leaflet + OpenStreetMap tiles + Nominatim), no accounts or API keys needed
+- Frontend foundation: config/map.js (tile URL, attribution, default center/zoom, VITE_ env overrides with fallbacks); MapPicker (controlled component: click-to-place, draggable marker, `focus` prop with optional zoom, `readOnly` mode, Vite-safe marker icon imports); geocodingService.js (searchPlaces/reverseGeocode, converts Nominatim's raw JSON into our own {lat, lng, displayName, city, pincode} shape); utils/geolocation.js (Promise wrapper with friendly messages for the 3 error codes); CurrentLocationButton (built on shared Button); LocationPicker (search on Enter/button only, GPS, map, three accuracy tiers, stale-response guard)
+- Extended shared Input to forward extra props via ...rest (placeholder, onKeyDown, maxLength, inputMode)
+- Wired LocationPicker into AddressesPage and RestaurantFormPage; delivery-partner ProfilePage gets a read-only map plus a "Use my current location" button (no manual pin moving)
+- Also fixed in AddressesPage: Button used `loading` instead of `submitting`, null landmark broke the controlled input, resetForm didn't clear formError
+- user-service: address create now requires valid coordinates and a 6-digit pincode; update validates whatever is sent (coordinates both-or-neither), with isBlank guards on required text fields; new PUT /me/delivery-partner/location (UpdateLocationRequest, @Valid, @PreAuthorize, role check in service); currentLat/currentLng added to DeliveryPartnerProfileResponse
+- restaurant-order-service: new GeoValidator utility; latitude/longitude added to UpdateRestaurantRequest and RestaurantResponse (they were never returned before, so the edit form could not load a saved pin); same validation on create/update and isBlank guards on name/addressLine/city/pincode
+- Verified end-to-end for customer addresses, restaurants, and delivery-partner location
+
+**Decisions made:**
+- Pin is the source of truth; city/pincode are editable suggestions. A pin is required to save an address or restaurant, and address_line stays one fully user-typed field
+- Touched-fields rule: fields the user has edited are never overwritten by map suggestions. Tracked in a ref (not state) because the callback fires after an await. Edit mode starts with both fields marked touched
+- Accuracy tiers: under 500 m trusted, 500 m to 5 km pinned with a warning, over 5 km only centers the map (no pin, no auto-fill). Delivery-partner location save refuses over 5 km too
+- Nominatim is called from the browser for now, isolated in one wrapper file, so moving it behind a backend proxy later is a one-file change. Plain fetch, not axiosClient, so the JWT is never sent to a third party
+- Search box is deliberately not a <form> (it sits inside parent forms) and searches on Enter/button, never per keystroke (Nominatim policy)
+- Validation helpers are intentionally duplicated per service (UserService private methods, GeoValidator in restaurant-order-service), consistent with no cross-service class sharing
+- Skipped the India Post pincode lookup: not fresher data, only confirms district/state
+- Delivery partner: no location at registration (public endpoint, and live data goes stale). Read-only map + GPS button on the profile page instead; is_available toggle deferred to the actual delivery-service work
+- First submission needs the Saga only, Kafka is not required. Remaining plan: 2 days design pass, 1 day documentation
+
+**Blockers/issues:**
+- Laptop geolocation was unreliable: one attempt returned an IP-based fix with ~100 km accuracy, others were within 10-50 m of the phone's location. Handled by the accuracy tiers above
+- OSM address text was wrong for a newly developed area (pin correct, reverse geocode said "Sachin" and an old pincode). No free provider fixes this because they all use the same OSM data, so the text stays editable
+- MapContainer reads `center` only on first render: solved with the separate `focus` prop, plus a key remount in AddressesPage (RestaurantFormPage doesn't need it because it renders only after loading)
+- City text can differ from what customers filter by (browse uses an exact city match)
+
+**Future scope (for documentation):**
+- Distance-based restaurant browsing from saved coordinates (city text becomes display-only)
+- Orders only store delivery_address_id, so delivery coordinates are not snapshotted at order time
+- Delivery-partner live tracking (WebSocket, watchPosition) and Redis GEO matching; is_available toggle
+- Public OSM tiles/Nominatim are for light use, so production would need a proxy with caching or a paid/self-hosted provider
+
+**Next session starts with:**
+- Design pass: rewrite tokens.css and the .module.css files (logic layer stays untouched), including a small shared Notice component for non-error hints
+- Then documentation for the first submission
