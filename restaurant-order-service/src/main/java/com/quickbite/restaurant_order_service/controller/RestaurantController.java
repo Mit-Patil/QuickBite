@@ -24,6 +24,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 
 @RestController
@@ -81,5 +82,11 @@ public class RestaurantController {
         Pageable pageable = PageRequest.of(page, size);
         return ResponseEntity.ok(restaurantService.browseRestaurants(city, pageable));
     }
-            
+    
+    @PostMapping("/{restaurantId}/restaurant-picture")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<RestaurantResponse> uploadRestaurantPicture(@PathVariable UUID restaurantId, @RequestParam("file") MultipartFile file){
+        return ResponseEntity.ok(restaurantService.uploadRestaurantPicture(restaurantId, getCurrentUserId(), file));
+    }
+    
 }

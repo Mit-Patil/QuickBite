@@ -1,5 +1,7 @@
 package com.quickbite.restaurant_order_service.service;
 
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.quickbite.restaurant_order_service.dto.CreateRestaurantRequest;
 import com.quickbite.restaurant_order_service.dto.RestaurantResponse;
 import com.quickbite.restaurant_order_service.dto.UpdateRestaurantRequest;
@@ -7,14 +9,17 @@ import com.quickbite.restaurant_order_service.entity.Restaurant;
 import com.quickbite.restaurant_order_service.entity.Restaurant.RestaurantType;
 import com.quickbite.restaurant_order_service.repository.RestaurantRepository;
 import com.quickbite.restaurant_order_service.util.GeoValidator;
+import java.io.IOException;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 
 @Service
@@ -22,6 +27,7 @@ import org.springframework.stereotype.Service;
 public class RestaurantService {
     
     private final RestaurantRepository restaurantRepository;
+    private final Cloudinary cloudinary;
     
     public RestaurantResponse createRestaurant(UUID ownerId, CreateRestaurantRequest request){
     
@@ -116,6 +122,38 @@ public class RestaurantService {
         return toResponse(saved);
     }
     
+    public RestaurantResponse uploadRestaurantPicture(UUID restaurantId, UUID ownerId, MultipartFile file){
+        Restaurant restaurant = restaurantRepository.findById(restaurantId)
+                .orElseThrow(() -> new IllegalArgumentException("Restaurant not found."));
+    
+        if(!restaurant.getOwnerId().equals(ownerId)){
+            throw new IllegalArgumentException("Your not owner of this restaurant.");
+        }
+        
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("Please choose an image");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Only image files are allowed");
+        }
+
+        Map uploadResult;
+        
+        try {
+            uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.asMap("folder", "quickbite/restaurant-picture"));
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to upload Image");
+        }
+        
+        String imageUrl = (String) uploadResult.get("secure_url");
+        
+        restaurant.setImageUrl(imageUrl);
+        restaurantRepository.save(restaurant);
+        
+        return toResponse(restaurant);
+    }
+    
     public Page<RestaurantResponse> browseRestaurants(String city, Pageable pageable) {
         Page<Restaurant> restaurants;
         if (city == null || city.isBlank()) {
@@ -142,6 +180,7 @@ public class RestaurantService {
                 .openingTime(r.getOpeningTime() != null ? r.getOpeningTime().toString() : null)
                 .closingTime(r.getClosingTime() != null ? r.getClosingTime().toString() : null)
                 .isOpen(r.isOpen())
+                .imageUrl(r.getImageUrl())
                 .createdAt(r.getCreatedAt())
                 .build();
     }

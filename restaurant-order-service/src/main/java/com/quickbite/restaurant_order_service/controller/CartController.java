@@ -2,6 +2,7 @@ package com.quickbite.restaurant_order_service.controller;
 
 import com.quickbite.restaurant_order_service.dto.AddToCartRequest;
 import com.quickbite.restaurant_order_service.dto.CartResponse;
+import com.quickbite.restaurant_order_service.dto.UpdateCartItemRequest;
 import com.quickbite.restaurant_order_service.service.CartService;
 import jakarta.validation.Valid;
 import java.util.UUID;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -58,5 +60,13 @@ public class CartController {
         UUID customerId = getCurrentUserId();
         cartService.clearCart(customerId);
         return ResponseEntity.noContent().build();
+    }
+    
+    @PutMapping("/items/{cartItemId}")
+    public ResponseEntity<CartResponse> updateQuantity(
+        @PathVariable UUID cartItemId,
+        @Valid @RequestBody UpdateCartItemRequest request) {
+    UUID customerId = getCurrentUserId();
+    return ResponseEntity.ok(cartService.updateCartItemQuantity(customerId, cartItemId, request.getQuantity()));
     }
 }

@@ -24,6 +24,7 @@ public class RestaurantResponse {
     private String closingTime;
     private Double latitude;
     private Double longitude;
+    private String imageUrl;
     
     @JsonProperty("isOpen")
     private boolean isOpen;

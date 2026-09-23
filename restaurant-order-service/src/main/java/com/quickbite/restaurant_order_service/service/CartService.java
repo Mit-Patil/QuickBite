@@ -166,6 +166,30 @@ public class CartService {
     }
     
     @Transactional
+    public CartResponse updateCartItemQuantity(UUID customerId, UUID cartItemId, int quantity) {
+        if (quantity < 1) {
+            throw new IllegalArgumentException("Quantity must be at least 1");
+        }
+
+        CartItem item = cartItemRepository.findById(cartItemId)
+                .orElseThrow(() -> new IllegalArgumentException("Cart item not found"));
+
+        if (!item.getCart().getCustomerId().equals(customerId)) {
+            throw new IllegalArgumentException("This is not your cart item");
+        }
+
+        MenuItem menuItem = item.getMenuItem();
+        if (!menuItem.isStockUnlimited() && menuItem.getStockQuantity() < quantity) {
+            throw new IllegalArgumentException("Only " + menuItem.getStockQuantity() + " left in stock");
+        }
+
+        item.setQuantity(quantity);
+        cartItemRepository.save(item);
+
+        return getCart(customerId);
+    }
+    
+    @Transactional
     public void clearCart(UUID customerId) {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Cart is empty"));
