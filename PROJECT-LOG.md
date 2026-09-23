@@ -828,3 +828,28 @@
 **Next session starts with:**
 - Design pass: rewrite tokens.css and the .module.css files (logic layer stays untouched), including a small shared Notice component for non-error hints
 - Then documentation for the first submission
+
+## Session 40 — 2026-09-22
+**Worked on:**
+- Full dark-navy + orange accent design pass across the entire frontend: tokens.css (surfaces, accent gradient, status colors), global.css, and every shared component (Input, Button, Select, Checkbox, RadioOption, ErrorMessage, new Notice component with info/warning/success variants and icons)
+- Auth pages rebuilt as a single AuthLayout with Sign In/Register tabs and role pills (Customer/Restaurant/Delivery) as nested routes sharing one persistent frame via <Outlet />, so switching tabs no longer flickers or remounts the brand panel
+- New shared AppShell (sticky top bar on desktop, bottom tab bar on mobile) replacing three near-duplicate layout files; CustomerLayout/RestaurantLayout/DeliveryLayout reduced to link config
+- Redesigned every customer page: CustomerHome (restaurant cards with Cloudinary-resized images, skeleton loading, empty/error states), AddressesPage (card grid + map/form editor, touched-fields rule preserved), RestaurantDetailPage (hero banner, masonry-column menu grouped by category, veg-only filter, variant picker restyled as segmented pills via :has()), CartPage (added quantity +/- stepper backed by a new PUT /api/cart/items/{id} endpoint), CheckoutPage, OrderConfirmationPage (status-aware headline + progress tracker), OrdersPage (shared StatusBadge component), ProfilePage (all three roles: sidebar with avatar/logo, name, role tag, quick nav, and the actual form on the right)
+- Redesigned restaurant-owner pages: RestaurantDashboard, MenuPage, MenuItemFormPage (sticky item-summary sidebar in edit mode, live-updating as the form is typed), VariantManager + AddonManager (shared ItemOptionManager.module.css), RestaurantFormPage (map/photo/details/hours cards, success notice added on save instead of silent redirect), restaurant-owner OrdersPage (StatusBadge, per-card action state)
+- Delivery ProfilePage: read-only MapPicker mode added (no drag/click) for showing last-known location; sidebar/nav pattern matches other two roles
+- Cloudinary image support wired into UI: cloudinaryResize() helper (f_auto,q_auto,w_) used on restaurant cards, menu items, hero banners; restaurant cover photo upload (new backend image_url column + uploadRestaurantPicture, separate from the existing owner logo which stays on the profile)
+
+**Decisions made:**
+- Restaurant cover photo (per-branch) kept separate from the owner's logo (per-account, shared across branches) — different concerns, both kept
+- Cart quantity change is a real PUT endpoint reusing addToCart's stock-check pattern against the new absolute quantity, not a client-side remove+re-add — correct pattern for a portfolio project, and it was a small addition
+- RestaurantFormPage's Save Changes now shows a success notice and stays on the page in edit mode (was silently redirecting with zero feedback); create mode still redirects since there's nothing further to do until editing
+- ImageUpload given a variant prop ('inline' | 'stacked') instead of forking the component, reused across profile sidebars and inline form uploads
+
+**Blockers/issues (all resolved):**
+- Two real cross-module CSS bugs found and fixed: (1) AddToCartControl referenced RadioOption's .variantPill class through its own `styles` object instead of importing RadioOption.module.css directly — CSS Modules scope classes per-file, so this silently resolved to undefined with no error; (2) an early attempt to pass a raw "inline" string as className relied on a compound selector CSS Modules hashes both halves of, so it never matched — fixed by passing a real boolean/variant prop through the component's own styles object instead of a bare string
+- Leaflet map inside LocationPicker caused page-level horizontal scroll on mobile-only, single-column layouts (RestaurantFormPage) — fixed with explicit max-width: 100% on the map container plus overflow-x: hidden on the page wrapper as a defensive backstop
+- CSS Modules masonry-column layout (column-count) adopted for the menu list to fix uneven card heights when items have differing numbers of variants/add-ons — correctly identified as normal content-driven height difference, not a layout bug, once isolated per category section
+
+**Next session starts with:**
+- Begin submission documentation (separate chat) — architecture, design decisions, known limitations/future scope list (Kafka, distance-based browsing, delivery live tracking, owner-logo-on-cards via events)
+- First submission checkpoint: Saga + core services + this design pass is the scope; Kafka explicitly not required
