@@ -1,44 +1,63 @@
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.loading { color: var(--color-text-muted); }
+
+.header { margin-bottom: 20px; }
+.title { margin: 0 0 4px; font-size: 1.6rem; font-weight: 800; }
+.subtitle { margin: 0; font-size: 0.9rem; color: var(--color-text-muted); }
+
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
 
 .card {
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 16px;
+  padding: 16px 18px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
 }
 
-.header {
+.cardHeader {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 14px;
-  color: #666;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 
-.status {
-  font-weight: 600;
-}
+.ref { margin: 0; font-size: 0.9rem; font-weight: 700; }
+.date { margin: 2px 0 0; font-size: 0.8rem; color: var(--color-text-muted); }
 
-.total {
-  font-weight: 600;
-  margin-top: 8px;
-}
-
-.cancelled {
-  color: #dc2626;
-  font-size: 14px;
-}
-
-.actions {
+.itemList {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 10px 0;
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  flex-direction: column;
+  gap: 4px;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
 }
 
-.actionButton {
-  width: auto;
-  padding: 8px 16px;
+.itemRow { font-size: 0.875rem; }
+.muted { color: var(--color-text-muted); }
+
+.total { margin: 0; font-weight: 700; }
+.cancelReason { margin: 8px 0 0; font-size: 0.85rem; color: var(--color-danger); }
+
+.actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.actionButton { width: auto; padding: 8px 16px; }
+
+.cancelButton { color: var(--color-danger); }
+.cancelButton:hover:not(:disabled) { border-color: var(--color-danger); background: var(--color-danger-bg); }
+
+.empty {
+  padding: 48px 16px;
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.emptyTitle { margin: 0 0 6px; font-weight: 700; }
+.emptyText { margin: 0; color: var(--color-text-muted); }
+
+@media (max-width: 600px) {
+  .title { font-size: 1.35rem; }
+  .card { padding: 14px; }
 }

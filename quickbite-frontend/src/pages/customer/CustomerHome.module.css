@@ -1,45 +1,170 @@
-/* src/pages/customer/CustomerHome.module.css */
+.header { margin-bottom: 20px; }
+.title { margin: 0 0 4px; font-size: 1.6rem; font-weight: 800; }
+.subtitle { margin: 0; font-size: 0.95rem; color: var(--color-text-muted); }
+
 .searchForm {
   display: flex;
   gap: 8px;
   align-items: flex-end;
-  max-width: 400px;
-  margin-bottom: 20px;
+  max-width: 460px;
+  margin-bottom: 24px;
 }
+
+.searchForm > :first-child { flex: 1; }
+.searchForm .searchButton { width: auto; flex-shrink: 0; margin-bottom: 16px; }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  gap: 20px;
+}
+
+.card,
+.card:hover {
+  text-decoration: none;
 }
 
 .card {
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 16px;
-  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   color: inherit;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+}
+
+@media (hover: hover) {
+  .card:hover {
+    transform: translateY(-3px);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-card);
+  }
+}
+
+.media {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  background: var(--color-surface-2);
+}
+
+.image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--color-accent);
+  background: linear-gradient(135deg, var(--color-surface-2), rgba(249, 115, 22, 0.18));
+}
+
+.cardClosed .image,
+.cardClosed .fallback {
+  filter: grayscale(0.85) brightness(0.7);
+}
+
+.openBadge,
+.closedBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  padding: 4px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  backdrop-filter: blur(6px);
 }
 
 .openBadge {
-  background: #e6f4ea;
-  color: #1a7f37;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+  color: var(--color-success);
+  background: rgba(6, 30, 20, 0.75);
+  border: 1px solid rgba(52, 211, 153, 0.4);
 }
 
 .closedBadge {
-  background: #fef2f2;
-  color: #dc2626;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+  color: var(--color-danger);
+  background: rgba(40, 10, 10, 0.75);
+  border: 1px solid rgba(248, 113, 113, 0.4);
 }
+
+.body { padding: 14px 16px 16px; }
+
+.name {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta { margin: 0 0 6px; font-size: 0.875rem; color: var(--color-text-muted); }
+.location { margin: 0; font-size: 0.8rem; color: var(--color-text-muted); }
+
+.skeleton {
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.skeletonMedia { aspect-ratio: 16 / 10; }
+
+.skeletonMedia,
+.skeletonLine {
+  background: linear-gradient(90deg, var(--color-surface-2) 25%, #1f2b42 50%, var(--color-surface-2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
+.skeletonLine { width: 50%; height: 12px; margin-top: 10px; border-radius: 6px; }
+.skeletonLineWide { width: 75%; height: 16px; margin-top: 0; }
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+.empty {
+  padding: 48px 16px;
+  text-align: center;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.emptyTitle { margin: 0 0 6px; font-size: 1.05rem; font-weight: 700; }
+.emptyText { margin: 0 0 16px; color: var(--color-text-muted); }
 
 .pagination {
   display: flex;
-  gap: 12px;
+  justify-content: center;
   align-items: center;
-  margin-top: 20px;
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.pageInfo { font-size: 0.9rem; color: var(--color-text-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .card { transition: none; }
+  .skeletonMedia, .skeletonLine { animation: none; }
+}
+
+@media (max-width: 600px) {
+  .title { font-size: 1.35rem; }
+  .searchForm { max-width: none; }
+  .grid { gap: 16px; }
 }

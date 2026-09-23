@@ -5,6 +5,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import Input from "../components/Input";
 import styles from '../styles/AuthForm.module.css';
 import Button from "../components/Button";
+import AuthLayout from "../components/AuthLayout";
 
 function Login(){
     const [email,setEmail] = useState('');
@@ -38,11 +39,12 @@ function Login(){
     }
 
     return (
-        <div className={styles.wrapper}>
-            <form onSubmit={handleSubmit} className={styles.form}>
-                <h1>Login</h1>
+        <>
+            <h2 className={styles.title}>Welcome back</h2>
+            <p className={styles.subtitle}>Sign in to your account</p>
 
-                <ErrorMessage message={error}/>
+            <form onSubmit={handleSubmit} className={styles.form}>
+                <ErrorMessage message={error} />
 
                 <Input
                     label="Email"
@@ -50,6 +52,8 @@ function Login(){
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    autoComplete="email"
                     required
                 />
 
@@ -59,18 +63,22 @@ function Login(){
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
                     required
                 />
 
-                <Button loading={loading} loadingText="Logging in...">Login</Button>
-
-                <p>Don't have an account? <Link to="/register/customer">Register</Link></p>
-                <p>Own a restaurant? <Link to="/register/restaurant">Register here</Link></p>
-                <p>Want to deliver? <Link to="/register/delivery-partner">Register here</Link></p>
+                <Button loading={loading} loadingText="Signing in...">Sign In</Button>
             </form>
-        </div>
-    );
 
+            <div className={styles.partnerRow}>
+                Want to partner with us?
+                <div className={styles.partnerLinks}>
+                    <Link to="/register/restaurant">List your restaurant</Link>
+                    <Link to="/register/delivery-partner">Deliver with us</Link>
+                </div>
+            </div>
+        </>
+    );
 }
 
 export default Login;

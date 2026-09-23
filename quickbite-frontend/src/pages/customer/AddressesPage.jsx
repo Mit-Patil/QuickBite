@@ -5,6 +5,7 @@ import Button from "../../components/Button";
 import ErrorMessage from "../../components/ErrorMessage";
 import styles from  './AddressesPage.module.css';
 import LocationPicker from "../../components/LocationPicker";
+import Notice from "../../components/Notice";
 
 function AddressesPage(){
   const [addresses, setAddresses] = useState([]);
@@ -22,7 +23,8 @@ function AddressesPage(){
   const [pin, setPin] = useState(null);
   const [formKey, setFormKey] = useState(0);
   const touched = useRef({ city: false, pincode: false });
-
+  const formCardRef = useRef(null);
+  
   useEffect(() =>{
     loadAddresses();
   }, []);
@@ -64,6 +66,7 @@ function AddressesPage(){
         setFormError('');
         touched.current = { city: true, pincode: true };
         setFormKey((k) => k + 1);
+        formCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function handleSuggestion(place) {
@@ -99,14 +102,16 @@ function AddressesPage(){
     }
 
 
-  async function handleDelete(id) {
-    try {
-        await deleteAddress(id);
-        await loadAddresses();
-    } catch (err) {
-        setError(err.message);
+    async function handleDelete(id) {
+        if (!window.confirm('Delete this address?')) return;
+        try {
+            await deleteAddress(id);
+            if (editingId === id) resetForm();
+            await loadAddresses();
+        } catch (err) {
+            setError(err.message);
+        }
     }
-  }
 
   async function handleSetDefault(id) {
     try {
@@ -117,67 +122,129 @@ function AddressesPage(){
     }
   }
   
-  if(loading) return <p>Loading Addresses...</p>;
+    if (loading) return <p className={styles.loading}>Loading addresses...</p>;
 
-  return (
-    <div>
-        <h1>My Addresses</h1>
-        <ErrorMessage message={error} />
+    return (
+        <div>
+            <header className={styles.header}>
+                <h1 className={styles.title}>My Addresses</h1>
+                <p className={styles.subtitle}>Saved delivery locations for faster checkout</p>
+            </header>
 
-        <ul className={styles.list}>
-            {addresses.map((address) => (
-                <li key={address.id} className={styles.item}>
-                    <p>{address.addressLine}, {address.city} - {address.pincode}</p>
-                    {address.landmark && <p>Landmark: {address.landmark}</p>}
-                    {address.latitude == null && <p>Location not pinned. Click Edit to add it.</p>}
-                    {address.isDefault ? (
-                        <span className={styles.defaultBadge}>default</span>
-                    ):(
-                        <button onClick={() => handleSetDefault(address.id)}>Set As Default</button>
-                    )}
-                    <button onClick={() => startEdit(address)}>Edit</button>
-                    <button onClick={() => handleDelete(address.id)}>delete</button>
-                </li>
-            ))}
-        </ul>
+            <ErrorMessage message={error} />
 
-        <h2>{editingId ? 'Edit Address' : 'Add New Address'}</h2>
-        <form onSubmit={handleSubmit} className={styles.form}>
-            <ErrorMessage message={formError} />
+            <section>
+                <h2 className={styles.sectionTitle}>Saved addresses</h2>
 
-            <LocationPicker key={formKey} value={pin} onChange={setPin} onSuggestion={handleSuggestion} />
+                {addresses.length === 0 ? (
+                    <div className={styles.empty}>
+                        <p className={styles.emptyTitle}>No saved addresses yet</p>
+                        <p className={styles.emptyText}>Add one using the map below and it will be ready at checkout.</p>
+                    </div>
+                ) : (
+                    <ul className={styles.list}>
+                        {addresses.map((address) => (
+                            <li
+                                key={address.id}
+                                className={`${styles.item} ${editingId === address.id ? styles.itemEditing : ''}`}
+                            >
+                                <div className={styles.itemHeader}>
+                                    <p className={styles.line}>{address.addressLine}</p>
+                                    {address.isDefault && <span className={styles.defaultBadge}>Default</span>}
+                                </div>
 
-            <p>City and pincode are filled from the map. Please check them.</p>
+                                <p className={styles.meta}>{address.city} - {address.pincode}</p>
+                                {address.landmark && <p className={styles.meta}>Near {address.landmark}</p>}
 
-            <Input label="Address Line" name="addressLine" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} required />
-            <Input label="Landmark" name="landmark" value={landmark} onChange={(e) => setLandmark(e.target.value)} />
-            <Input
-                label="City"
-                name="city"
-                value={city}
-                onChange={(e) => { touched.current.city = true; setCity(e.target.value); }}
-                required
-            />
-            <Input
-                label="Pincode"
-                name="pincode"
-                value={pincode}
-                onChange={(e) => { touched.current.pincode = true; setPincode(e.target.value); }}
-                maxLength={6}
-                inputMode="numeric"
-                required
-            />
+                                {address.latitude == null && (
+                                    <Notice variant="warning" className={styles.notice}>
+                                        Location not pinned. Edit this address to add it.
+                                    </Notice>
+                                )}
 
-            <Button loading={submitting} loadingText={editingId ? 'Updating...' : 'Adding ...'}>
-                {editingId ? 'Update Address' : 'Add Address'}
-            </Button>
+                                <div className={styles.actions}>
+                                    {!address.isDefault && (
+                                        <button type="button" onClick={() => handleSetDefault(address.id)}>
+                                            Set as default
+                                        </button>
+                                    )}
+                                    <button type="button" onClick={() => startEdit(address)}>Edit</button>
+                                    <button type="button" className={styles.dangerButton} onClick={() => handleDelete(address.id)}>
+                                        Delete
+                                    </button>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </section>
 
-            {editingId && (
-                <button type="button" onClick={resetForm}>Cancel</button>
-            )}
-        </form>
-    </div>
-  );
+            <section ref={formCardRef} className={styles.editorCard}>
+                <h2 className={styles.sectionTitle}>{editingId ? 'Edit address' : 'Add new address'}</h2>
+
+                <form onSubmit={handleSubmit} className={styles.editor}>
+                    <ErrorMessage message={formError} className={styles.fullRow} />
+
+                    <div className={styles.mapColumn}>
+                        <LocationPicker
+                            key={formKey}
+                            value={pin}
+                            onChange={setPin}
+                            onSuggestion={handleSuggestion}
+                            height="420px"
+                        />
+                    </div>
+
+                    <div className={styles.fieldsColumn}>
+                        <Notice>City and pincode are filled from the map. Please check them.</Notice>
+
+                        <Input
+                            label="Address Line"
+                            name="addressLine"
+                            value={addressLine}
+                            onChange={(e) => setAddressLine(e.target.value)}
+                            placeholder="House / flat no., building, street"
+                            autoComplete="street-address"
+                            required
+                        />
+                        <Input
+                            label="Landmark"
+                            name="landmark"
+                            value={landmark}
+                            onChange={(e) => setLandmark(e.target.value)}
+                            placeholder="Optional, e.g. near City Mall"
+                        />
+                        <Input
+                            label="City"
+                            name="city"
+                            value={city}
+                            onChange={(e) => { touched.current.city = true; setCity(e.target.value); }}
+                            autoComplete="address-level2"
+                            required
+                        />
+                        <Input
+                            label="Pincode"
+                            name="pincode"
+                            value={pincode}
+                            onChange={(e) => { touched.current.pincode = true; setPincode(e.target.value); }}
+                            maxLength={6}
+                            inputMode="numeric"
+                            autoComplete="postal-code"
+                            required
+                        />
+
+                        <Button loading={submitting} loadingText={editingId ? 'Updating...' : 'Adding...'}>
+                            {editingId ? 'Update Address' : 'Add Address'}
+                        </Button>
+
+                        {editingId && (
+                            <button type="button" className={styles.cancel} onClick={resetForm}>Cancel</button>
+                        )}
+                    </div>
+                </form>
+            </section>
+        </div>
+    );
 
 }
 

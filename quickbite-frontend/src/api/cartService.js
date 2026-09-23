@@ -15,3 +15,7 @@ export function removeCartItem(cartItemId) {
 export function clearCart() {
   return orderClient.delete('/api/cart');
 }
+
+export function updateCartItemQuantity(cartItemId, quantity) {
+  return orderClient.put(`/api/cart/items/${cartItemId}`, { quantity });
+}

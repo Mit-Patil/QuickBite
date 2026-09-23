@@ -1,0 +1,216 @@
+.page {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    align-items: center;
+    gap: 48px;
+    padding: 48px clamp(20px, 6vw, 96px);
+    background-color: var(--color-bg);
+    background-image:
+        radial-gradient(600px circle at 12% 8%, rgba(249, 115, 22, 0.16), transparent 60%),
+        radial-gradient(500px circle at 88% 92%, rgba(59, 130, 246, 0.14), transparent 60%),
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    background-size: auto, auto, 48px 48px, 48px 48px;
+}
+
+.brand {
+    max-width: 480px;
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 40px;
+}
+
+.logoMark {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    font-weight: 800;
+    color: var(--color-on-accent);
+    background: var(--gradient-accent);
+    border-radius: 11px;
+}
+
+.logoText {
+    font-size: 1.15rem;
+    font-weight: 700;
+}
+
+.headline {
+    margin: 0 0 16px;
+    font-size: clamp(2rem, 4vw, 2.8rem);
+    line-height: 1.15;
+    font-weight: 800;
+}
+
+.highlight {
+    display: block;
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.subtext {
+    margin: 0 0 32px;
+    color: var(--color-text-muted);
+    line-height: 1.6;
+}
+
+.features {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.feature {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.925rem;
+    color: var(--color-text-muted);
+}
+
+.featureIcon {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+}
+
+.cardWrap {
+    display: flex;
+    justify-content: center;
+}
+
+.card {
+    width: 100%;
+    max-width: 440px;
+    padding: 28px;
+    background: rgba(17, 24, 39, 0.85);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+}
+
+.tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px;
+    margin-bottom: 24px;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.tab {
+    padding: 9px 0;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    border-radius: 9px;
+}
+
+.tab:hover {
+    text-decoration: none;
+    color: var(--color-text);
+}
+
+.tabActive {
+    color: var(--color-accent);
+    background: var(--color-accent-soft);
+}
+
+.rolesLabel {
+    margin: 0 0 8px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+}
+
+.roles {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+}
+
+.role {
+    flex: 1;
+    padding: 8px 0;
+    text-align: center;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+}
+
+.role:hover {
+    text-decoration: none;
+    color: var(--color-text);
+    border-color: var(--color-accent);
+}
+
+.roleActive {
+    color: var(--color-accent);
+    background: var(--color-accent-soft);
+    border-color: var(--color-accent);
+}
+
+.content {
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .content { animation: none; }
+}
+
+@media (max-width: 900px) {
+    .page {
+        grid-template-columns: 1fr;
+        gap: 24px;
+        padding: 24px 16px;
+        align-content: start;
+    }
+
+    .brand {
+        max-width: none;
+    }
+
+    .logo {
+        margin-bottom: 0;
+    }
+
+    .headline,
+    .subtext,
+    .features {
+        display: none;
+    }
+
+    .card {
+        max-width: none;
+        padding: 20px;
+    }
+}

@@ -1,14 +1,16 @@
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import { getMe, updateDeliveryPartnerProfile, updateDeliveryPartnerLocation } from "../../api/userService";
 import Input from "../../components/Input";
 import Button from "../../components/Button";
 import ErrorMessage from "../../components/ErrorMessage";
+import Notice from "../../components/Notice";
 import styles from '../../styles/ProfilePage.module.css';
 import ImageUpload from "../../components/ImageUpload";
 import { uploadDeliveryPartnerPicture } from "../../api/uploadService";
 import CurrentLocationButton from "../../components/CurrentLocationButton";
 import { MAP_CONFIG } from "../../config/map";
 import MapPicker from "../../components/MapPicker";
+import { Link } from 'react-router-dom';
 
 function ProfilePage(){
     const [loading, setLoading] = useState(true);
@@ -23,6 +25,8 @@ function ProfilePage(){
     const [vehicleNumber, setVehicleNumber] = useState('');
     const [currentLocation, setCurrentLocation] = useState(null);
     const [mapFocus, setMapFocus] = useState(null);
+    const [locationError, setLocationError] = useState('');
+    const [locationSuccess, setLocationSuccess] = useState('');
 
     useEffect(()=>{
         loadProfile();
@@ -51,11 +55,11 @@ function ProfilePage(){
     }
 
     async function handleLocated(position) {
-        setError('');
-        setSuccess('');
+        setLocationError('');
+        setLocationSuccess('');
 
         if (position.accuracy > MAP_CONFIG.maxUsableAccuracyMeters) {
-            setError('We could only estimate your general area, so your location was not saved. Try on a phone or with GPS enabled.');
+            setLocationError('We could only estimate your general area, so your location was not saved. Try on a phone or with GPS enabled.');
             return;
         }
 
@@ -63,9 +67,9 @@ function ProfilePage(){
             await updateDeliveryPartnerLocation({ latitude: position.lat, longitude: position.lng });
             setCurrentLocation({ lat: position.lat, lng: position.lng });
             setMapFocus({ lat: position.lat, lng: position.lng });
-            setSuccess('Location updated');
+            setLocationSuccess('Location updated');
         } catch (err) {
-            setError(err.message);
+            setLocationError(err.message);
         }
     }
 
@@ -85,43 +89,69 @@ function ProfilePage(){
         }
     }
 
-    if(loading) return <p>Loading profile....</p>;
+    if(loading) return <p className={styles.loading}>Loading profile...</p>;
 
     return (
         <div className={styles.wrapper}>
-            <h1>My Profile</h1>
-            <ErrorMessage message={error} />
-            {success && <p className={styles.success}>{success}</p>}
+            <header className={styles.header}>
+                <h1 className={styles.title}>My Profile</h1>
+                <p className={styles.subtitle}>Vehicle details and your last known location</p>
+            </header>
 
-            <form onSubmit={handleSubmit} className={styles.form}>
+            <div className={styles.layout}>
+                <aside className={styles.sidebar}>
+                    <ImageUpload
+                        variant="stacked"
+                        currentImageUrl={profilePicUrl}
+                        uploadFn={uploadDeliveryPartnerPicture}
+                        onUploaded={(updated) => setProfilePicUrl(updated.profilePicUrl)}
+                    />
+                    <p className={styles.summaryName}>{fullName || 'Your name'}</p>
+                    <span className={styles.roleTag}>Delivery Partner</span>
 
-                <ImageUpload
-                    currentImageUrl={profilePicUrl}
-                    uploadFn={uploadDeliveryPartnerPicture}
-                    onUploaded={(updated) => setProfilePicUrl(updated.profilePicUrl)}
-                />    
+                    <ul className={styles.navList}>
+                        <li><Link to="/delivery" className={styles.navLink}>🏍️ Home</Link></li>
+                    </ul>
+                </aside>
 
-                <Input label="Full Name" name="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                <Input label="Phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                <Input label="Vehicle Type" name="vehicleType" value={vehicleType} onChange={(e) => setVehicleType(e.target.value)} />
-                <Input label="Vehicle Number" name="vehicleNumber" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} />
+                <div className={styles.main}>
+                    <section className={styles.card}>
+                        <ErrorMessage message={error} />
+                        {success && <Notice variant="success">{success}</Notice>}
 
-                <Button loading={submitting} loadingText="Saving...">Save Changes</Button>
-            </form>
+                        <form onSubmit={handleSubmit} className={styles.form}>
+                            <Input label="Full Name" name="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" required />
+                            <Input label="Phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
+                            <Input label="Vehicle Type" name="vehicleType" value={vehicleType} onChange={(e) => setVehicleType(e.target.value)} placeholder="e.g. Bike, Scooter" />
+                            <Input label="Vehicle Number" name="vehicleNumber" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} placeholder="e.g. GJ 05 AB 1234" />
 
-            <h2>My Location</h2>
-            <p>
-                {currentLocation
-                    ? `Last saved: ${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}`
-                    : 'No location saved yet.'}
-            </p>
-            {currentLocation && (
-                <MapPicker value={currentLocation} readOnly focus={mapFocus} height="250px" />
-            )}
-            <CurrentLocationButton onLocated={handleLocated} onError={setError} />
+                            <Button loading={submitting} loadingText="Saving...">Save Changes</Button>
+                        </form>
+                    </section>
+
+                    <section className={styles.card}>
+                        <h2 className={styles.cardTitle}>My Location</h2>
+                        <ErrorMessage message={locationError} />
+                        {locationSuccess && <Notice variant="success">{locationSuccess}</Notice>}
+
+                        <p className={styles.locationStatus}>
+                            {currentLocation
+                                ? `Last saved: ${currentLocation.lat.toFixed(5)}, ${currentLocation.lng.toFixed(5)}`
+                                : 'No location saved yet.'}
+                        </p>
+
+                        {currentLocation && (
+                            <div className={styles.mapBox}>
+                                <MapPicker value={currentLocation} readOnly focus={mapFocus} height="240px" />
+                            </div>
+                        )}
+
+                        <CurrentLocationButton className={styles.locationButton} onLocated={handleLocated} onError={setLocationError} />
+                    </section>
+                </div>
+            </div>
         </div>
     );
-
 }
 
 export default ProfilePage;

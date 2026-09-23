@@ -1,17 +1,37 @@
-.field{
-    margin-bottom: 12px;
-    display: flex;
-    flex-direction: column;
+.field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+
+.label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
 }
 
-.label{
-    font-size: 14px;
-    margin-bottom: 4px;
+.input {
+    width: 100%;
+    padding: 12px 14px;
+    font: inherit;
+    color: var(--color-text);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 
-.input{
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 14px;
+.input::placeholder { color: #5b6679; }
+
+.input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
+}
+
+.input:-webkit-autofill,
+.input:-webkit-autofill:hover,
+.input:-webkit-autofill:focus {
+    -webkit-text-fill-color: var(--color-text);
+    box-shadow: 0 0 0 1000px var(--color-surface-2) inset;
+    caret-color: var(--color-text);
+    transition: background-color 9999s ease-out 0s;
 }

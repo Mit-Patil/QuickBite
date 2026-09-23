@@ -23,3 +23,9 @@ export function uploadMenuItemPicture(menuItemId, file) {
   formData.append('file', file);
   return orderClient.post(`/api/menu-items/${menuItemId}/picture`, formData);
 }
+
+export function uploadRestaurantImage(restaurantId, file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  return orderClient.post(`/api/restaurants/${restaurantId}/restaurant-picture`, formData);
+}

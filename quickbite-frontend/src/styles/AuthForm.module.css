@@ -1,10 +1,3 @@
-.wrapper{
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    min-height: 100vh;
-    padding: 16px;
-}
 
 .form{
     width: 100%;
@@ -16,4 +9,40 @@
     .form{
         max-width: 100%;
     }   
+}
+
+.footer {
+    margin: 20px 0 0;
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+.partnerRow {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--color-border);
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+}
+
+.partnerLinks {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 8px;
+}
+
+.title {
+    margin: 0 0 4px;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.subtitle {
+    margin: 0 0 24px;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
 }

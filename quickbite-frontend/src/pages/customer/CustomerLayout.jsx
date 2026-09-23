@@ -1,31 +1,15 @@
-import {Outlet, useNavigate, Link} from 'react-router-dom';
-import { useAuth } from '../../auth/AuthContext';
-import styles from '../../styles/DashboardLayout.module.css';
+import AppShell from '../../components/AppShell';
 
-function CustomerLayout(){
-    const { logout } = useAuth();
-    const navigate = useNavigate();
+const LINKS = [
+  { to: '/customer', label: 'Home', icon: '🏠', end: true },
+  { to: '/customer/cart', label: 'Cart', icon: '🛒' },
+  { to: '/customer/orders', label: 'Orders', icon: '📋' },
+  { to: '/customer/addresses', label: 'Addresses', icon: '📍' },
+  { to: '/customer/profile', label: 'Profile', icon: '👤' },
+];
 
-    function handleLogout(){
-        logout();
-        navigate('/login');
-    }
-
-    return (
-        <div>
-            <nav className={styles.nav}>
-                <Link to="/customer">Home</Link>
-                <Link to="/customer/addresses">Addresses</Link>
-                <Link to="/customer/profile">Profile</Link>
-                <Link to="/customer/cart">Cart</Link>
-                <Link to="/customer/orders">My Orders</Link>
-                <button onClick={handleLogout}>Logout</button>
-            </nav>
-            <main className={styles.main}>
-                <Outlet />
-            </main>
-        </div>
-    );
+function CustomerLayout() {
+  return <AppShell links={LINKS} />;
 }
 
 export default CustomerLayout;

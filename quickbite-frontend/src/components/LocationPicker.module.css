@@ -1,7 +1,30 @@
 .picker { display: flex; flex-direction: column; gap: 0.75rem; }
 .searchRow { display: flex; gap: 0.5rem; align-items: flex-end; }
-.searchRow > :first-child { flex: 1; }
-.results { list-style: none; margin: 0; padding: 0; border: 1px solid #ddd; border-radius: 6px; max-height: 200px; overflow-y: auto; }
-.resultItem { display: block; width: 100%; text-align: left; padding: 0.5rem 0.75rem; background: none; border: none; cursor: pointer; }
-.resultItem:hover { background: #f3f3f3; }
-.hint { margin: 0; font-size: 0.875rem; color: #555; }
+.searchRow > :first-child { flex: 1; min-width: 0; }
+.searchRow .searchButton { width: auto; flex-shrink: 0; margin-bottom: 16px; }
+.picker .gpsButton { width: auto; align-self: flex-start; }
+
+.results {
+    list-style: none; margin: 0; padding: 0;
+    max-height: 200px; overflow-y: auto;
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.resultItem {
+    display: block; width: 100%; padding: 10px 12px;
+    text-align: left; font: inherit; color: var(--color-text);
+    background: none; border: none; cursor: pointer;
+}
+
+.resultItem:hover { background: var(--color-accent-soft); }
+.hint { margin: 0; font-size: 0.875rem; color: var(--color-text-muted); }
+
+
+.picker :global(.leaflet-container) {
+    max-width: 100%;
+    isolation: isolate;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}

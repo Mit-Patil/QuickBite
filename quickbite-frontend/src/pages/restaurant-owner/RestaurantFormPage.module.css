@@ -1,0 +1,44 @@
+.wrapper { max-width: 1000px; margin: 0 auto; overflow-x: hidden; }
+.loading { color: var(--color-text-muted); }
+
+.back {
+  display: inline-block;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  text-decoration: underline;
+}
+.back:hover { color: var(--color-text); }
+
+.header { margin-bottom: 16px; }
+.title { margin: 0; font-size: 1.6rem; font-weight: 800; }
+
+.layout { display: grid; gap: 20px; align-items: start; }
+
+@media (min-width: 900px) {
+  .layout { grid-template-columns: 1fr 1.1fr; }
+}
+
+.mapColumn,
+.fieldsColumn { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+.card {
+  padding: 20px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.cardTitle { margin: 0 0 14px; font-size: 1.05rem; font-weight: 700; }
+
+.fieldRow { display: flex; gap: 12px; }
+.fieldRow > * { flex: 1; min-width: 0; }
+
+@media (max-width: 500px) {
+  .fieldRow { flex-direction: column; gap: 0; }
+}
+
+@media (max-width: 600px) {
+  .title { font-size: 1.35rem; }
+  .card { padding: 16px; }
+}

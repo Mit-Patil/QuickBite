@@ -1,28 +1,12 @@
-import { Outlet, Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../auth/AuthContext";
-import styles from '../../styles/DashboardLayout.module.css';
+import AppShell from '../../components/AppShell';
 
-function DeliveryLayout(){
-    const {logout} = useAuth();
-    const navigate = useNavigate();
+const LINKS = [
+  { to: '/delivery', label: 'Home', icon: '🏍️', end: true },
+  { to: '/delivery/profile', label: 'Profile', icon: '👤' },
+];
 
-    async function handleLogout() {
-        logout();
-        navigate('/login');
-    }
-
-    return (
-        <div>
-            <nav className={styles.nav}>
-                <Link to="/delivery">Home</Link>
-                <Link to="/delivery/profile">Profile</Link>
-                <button onClick={handleLogout}>Logout</button>
-            </nav>
-            <main className={styles.main}>
-                <Outlet />
-            </main>
-        </div>
-    );
+function DeliveryLayout() {
+  return <AppShell links={LINKS} roleLabel="Delivery" />;
 }
 
 export default DeliveryLayout;

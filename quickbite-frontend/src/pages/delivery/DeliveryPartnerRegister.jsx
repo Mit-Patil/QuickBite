@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { registerDeliveryPartner } from "../../api/userService";
 import styles from '../../styles/AuthForm.module.css';
 import ErrorMessage from "../../components/ErrorMessage";
@@ -16,7 +16,7 @@ function DeliveryPartnerRegister(){
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    const naviagte = useNavigate();
+    const navigate = useNavigate();
 
     async function handleSubmit(e){
         e.preventDefault();
@@ -25,7 +25,7 @@ function DeliveryPartnerRegister(){
 
         try {
             await registerDeliveryPartner({fullName, email, phone, password, vehicleType, vehicleNumber});
-            naviagte('/login');
+            navigate('/login');
         } catch (err) {
             setError(err.message);
         }finally{
@@ -34,24 +34,40 @@ function DeliveryPartnerRegister(){
     }
 
     return (
-        <div className={styles.wrapper}>
-            <form onSubmit={handleSubmit} className={styles.form}>
-                <h1>Register as a Delivery Partner</h1>
+        <>
+            <h2 className={styles.title}>Deliver with us</h2>
+            <p className={styles.subtitle}>Join our delivery network</p>
 
+            <form onSubmit={handleSubmit} className={styles.form}>
                 <ErrorMessage message={error}/>
 
-                <Input label="Full Name" name="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-                <Input label="Email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-                <Input label="Phone" name="phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} required />
-                <Input label="Password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                <Input label="Vehicle Type" name="vehicleType" value={vehicleType} onChange={(e) => setVehicleType(e.target.value)} required />
-                <Input label="Vehicle Number" name="vehicleNumber" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)} required />
+                <Input label="Full Name" name="fullName" value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Your full name" autoComplete="name" required />
 
-                <Button loading={loading} loadingText="Creating account...">Register</Button>
+                <Input label="Email" name="email" type="email" value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com" autoComplete="email" required />
 
-                <p>Already have an account? <Link to="/login">Login</Link></p>
+                <Input label="Phone" name="phone" type="tel" value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="Mobile number" autoComplete="tel" required />
+
+                <Input label="Password" name="password" type="password" value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 6 characters" autoComplete="new-password" required />
+
+                <Input label="Vehicle Type" name="vehicleType" value={vehicleType}
+                    onChange={(e) => setVehicleType(e.target.value)}
+                    placeholder="e.g. Bike, Scooter" required />
+
+                <Input label="Vehicle Number" name="vehicleNumber" value={vehicleNumber}
+                    onChange={(e) => setVehicleNumber(e.target.value)}
+                    placeholder="e.g. GJ 05 AB 1234" autoComplete="off" required />
+
+                <Button loading={loading} loadingText="Creating account...">Create Delivery Account</Button>
             </form>
-        </div>
+        </>
     );
 }
 

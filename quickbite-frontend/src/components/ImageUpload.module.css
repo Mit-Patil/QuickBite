@@ -1,13 +1,76 @@
-.wrapper {
-  margin-bottom: 16px;
-}
+.wrapper { margin-bottom: 16px; }
 
 .preview {
-  width: 120px;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 8px;
-  display: block;
-  margin-bottom: 8px;
-  border: 1px solid #eee;
+    width: 120px; height: 120px; object-fit: cover;
+    display: block; margin-bottom: 8px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.wrapper input[type='file'] { font: inherit; font-size: 0.85rem; color: var(--color-text-muted); }
+
+.wrapper input[type='file']::file-selector-button {
+    margin-right: 10px; padding: 6px 12px; font: inherit;
+    color: var(--color-text); background: var(--color-surface-2);
+    border: 1px solid var(--color-border); border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.inline {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 0;
+}
+
+.inline .preview {
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.fileRow {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.stacked {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    margin-bottom: 0;
+}
+
+.stacked .preview {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    margin-bottom: 12px;
+}
+
+.stacked .fileRow {
+    align-items: center;
+}
+
+.stacked input[type='file'] {
+    display: none;
+}
+
+.stacked .fileLabel {
+    display: inline-block;
+    padding: 6px 14px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.stacked .fileLabel:hover {
+    color: var(--color-text);
+    border-color: var(--color-accent);
 }

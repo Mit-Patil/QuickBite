@@ -99,7 +99,7 @@ export default function LocationPicker({ value, onChange, onSuggestion, height =
           onKeyDown={handleSearchKeyDown}
           placeholder="e.g. Bopal Ahmedabad"
         />
-        <Button type="button" loading={searching} loadingText="Searching..." onClick={handleSearch}>
+        <Button type="button" className={styles.searchButton} loading={searching} loadingText="Searching..." onClick={handleSearch}>
           Search
         </Button>
       </div>
@@ -116,7 +116,7 @@ export default function LocationPicker({ value, onChange, onSuggestion, height =
         </ul>
       )}
 
-      <CurrentLocationButton onLocated={handleLocated} onError={setMessage} />
+      <CurrentLocationButton className={styles.gpsButton} onLocated={handleLocated} onError={setMessage} />
 
       <MapPicker value={value} onChange={handlePinChange} focus={focus} height={height} />
 

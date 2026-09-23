@@ -1,13 +1,14 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import Button from './Button';
 import ErrorMessage from './ErrorMessage';
 import styles from './ImageUpload.module.css';
 
-function ImageUpload({ currentImageUrl, uploadFn, onUploaded }) {
+function ImageUpload({ currentImageUrl, uploadFn, onUploaded, variant = 'default', className = '' }) {
   const [preview, setPreview] = useState(currentImageUrl || null);
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const inputId = useId();
 
   function handleFileSelect(e) {
     const selected = e.target.files[0];
@@ -31,16 +32,30 @@ function ImageUpload({ currentImageUrl, uploadFn, onUploaded }) {
     }
   }
 
+  const variantClass = variant === 'inline' ? styles.inline : variant === 'stacked' ? styles.stacked : '';
+
   return (
-    <div className={styles.wrapper}>
+    <div className={`${styles.wrapper} ${variantClass} ${className}`}>
       {preview && <img src={preview} alt="Preview" className={styles.preview} />}
-      <ErrorMessage message={error} />
-      <input type="file" accept="image/*" onChange={handleFileSelect} />
-      {file && (
-        <Button type="button" loading={uploading} loadingText="Uploading..." onClick={handleUpload}>
-          Upload
-        </Button>
-      )}
+      <div className={styles.fileRow}>
+        <ErrorMessage message={error} />
+        {variant === 'stacked' ? (
+          <label htmlFor={inputId} className={styles.fileLabel}>
+            {file ? file.name : 'Change photo'}
+          </label>
+        ) : null}
+        <input
+          id={inputId}
+          type="file"
+          accept="image/*"
+          onChange={handleFileSelect}
+        />
+        {file && (
+          <Button type="button" loading={uploading} loadingText="Uploading..." onClick={handleUpload}>
+            Upload
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

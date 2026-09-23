@@ -5,6 +5,7 @@ import ErrorMessage from './ErrorMessage';
 import Checkbox from './Checkbox';
 import RadioOption from './RadioOption';
 import styles from './AddToCartControl.module.css';
+import radioStyles from './RadioOption.module.css';
 
 function AddToCartControl({ item, onAdded }) {
   const hasVariants = item.variants.length > 0;
@@ -64,7 +65,7 @@ function AddToCartControl({ item, onAdded }) {
       <ErrorMessage message={error} />
 
       {hasVariants && (
-        <div className={styles.options}>
+        <div className={`${styles.options} ${styles.variantRow}`}>
             {item.variants.map((v) => (
             <RadioOption
                 key={v.id}
@@ -73,6 +74,7 @@ function AddToCartControl({ item, onAdded }) {
                 value={v.id}
                 checked={variantId === v.id}
                 onChange={() => setVariantId(v.id)}
+                className={radioStyles.variantPill}
             />
             ))}
         </div>

@@ -1,5 +1,31 @@
 :root {
-    --color-danger : #dc2626;
-    --color-danger-bg : #fef2f2;
-    --breakpoint-mobile:600px;
+    color-scheme: dark;
+
+    --color-bg: #0a0f1e;
+    --color-surface: #111827;
+    --color-surface-2: #172033;
+    --color-border: #263248;
+
+    --color-text: #f3f5f9;
+    --color-text-muted: #8b96ab;
+
+    --color-accent: #f97316;
+    --color-accent-soft: rgba(249, 115, 22, 0.15);
+    --color-on-accent: #1a0e03;
+    --gradient-accent: linear-gradient(135deg, #f97316, #fb923c);
+
+    --color-danger: #f87171;
+    --color-danger-bg: rgba(248, 113, 113, 0.12);
+    --color-success: #34d399;
+
+    --color-warning: #fbbf24;
+    --color-warning-bg: rgba(251, 191, 36, 0.12);
+
+    --color-info: #60a5fa;
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 20px;
+    --shadow-card: 0 24px 60px rgba(0, 0, 0, 0.45);
+    --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }

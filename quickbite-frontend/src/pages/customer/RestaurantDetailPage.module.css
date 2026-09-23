@@ -1,64 +1,195 @@
-/* src/pages/customer/RestaurantDetailPage.module.css */
-.header {
-  margin-bottom: 24px;
+.loading { color: var(--color-text-muted); }
+
+.back {
+    display: inline-block;
+    margin-bottom: 12px;
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    text-decoration: underline;
 }
+.back:hover { color: var(--color-text); }
+
+.hero {
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: flex-end;
+    min-height: 240px;
+    margin-bottom: 20px;
+    background: linear-gradient(135deg, var(--color-surface-2), rgba(249, 115, 22, 0.22));
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+}
+
+.heroImage { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.heroClosed .heroImage { filter: grayscale(0.85) brightness(0.7); }
+
+.heroOverlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(10, 15, 30, 0.95), rgba(10, 15, 30, 0.25) 75%);
+}
+
+.heroContent { position: relative; width: 100%; padding: 24px; }
+.heroTitle { margin: 10px 0 4px; font-size: 1.9rem; font-weight: 800; overflow-wrap: anywhere; }
+.heroSub { margin: 0 0 10px; color: rgba(243, 245, 249, 0.85); }
+
+.metaRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    font-size: 0.875rem;
+    color: rgba(243, 245, 249, 0.85);
+}
+
+.openBadge,
+.closedBadge {
+    display: inline-block;
+    padding: 4px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: 999px;
+}
+
+.openBadge { color: var(--color-success); background: rgba(6, 30, 20, 0.75); border: 1px solid rgba(52, 211, 153, 0.4); }
+.closedBadge { color: var(--color-danger); background: rgba(40, 10, 10, 0.75); border: 1px solid rgba(248, 113, 113, 0.4); }
+
+.about { margin: 0 0 16px; color: var(--color-text-muted); line-height: 1.5; }
+
+.toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin: 8px 0 16px;
+}
+
+.menuTitle { margin: 0; font-size: 1.3rem; font-weight: 800; }
+.toolbar label { margin-bottom: 0; }
+
+.category { margin-bottom: 28px; }
+.categoryTitle { margin: 0 0 12px; font-size: 1.05rem; font-weight: 700; color: var(--color-accent); }
 
 .menuList {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+    list-style: none;
+    margin: 0;
+    padding: 0;
 }
 
-.menuItem {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border: 1px solid #eee;
-  border-radius: 8px;
-  padding: 12px 16px;
+@media (min-width: 900px) {
+    .menuList {
+        column-count: 2;
+        column-gap: 12px;
+    }
 }
 
-.price {
-  font-weight: 600;
+.item {
+    padding: 16px;
+    margin-bottom: 12px;
+    break-inside: avoid;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
 }
 
-.openBadge, .vegBadge {
-  background: #e6f4ea;
-  color: #1a7f37;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+.itemTop { display: flex; justify-content: space-between; gap: 16px; }
+.itemText { flex: 1; min-width: 0; }
+
+.itemImage {
+    flex-shrink: 0;
+    width: 112px;
+    height: 112px;
+    object-fit: cover;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
 }
 
-.closedBadge, .nonVegBadge {
-  background: #fef2f2;
-  color: #dc2626;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
+.itemSoldOut .itemText { opacity: 0.55; }
+.itemSoldOut .itemImage { opacity: 0.55; filter: grayscale(0.7); }
+
+.vegMark {
+    position: relative;
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    margin-bottom: 6px;
+    border: 2px solid currentColor;
+    border-radius: 3px;
+}
+.vegMark::after { content: ''; position: absolute; inset: 2px; border-radius: 50%; background: currentColor; }
+.veg { color: #22c55e; }
+.nonVeg { color: #ef4444; }
+
+.itemName { margin: 0 0 4px; font-size: 1rem; font-weight: 700; overflow-wrap: anywhere; }
+.price { margin: 0 0 6px; font-weight: 700; }
+.description { margin: 0 0 6px; font-size: 0.875rem; line-height: 1.45; color: var(--color-text-muted); overflow-wrap: anywhere; }
+.hint { margin: 0; font-size: 0.78rem; color: var(--color-accent); }
+
+.empty {
+    padding: 40px 16px;
+    text-align: center;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-lg);
+}
+.emptyTitle { margin: 0 0 6px; font-weight: 700; }
+.emptyText { margin: 0; color: var(--color-text-muted); }
+
+.cartBar {
+    position: fixed;
+    left: 50%;
+    bottom: 20px;
+    z-index: 90; 
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 12px 10px 20px;
+    font-weight: 600;
+    background: var(--color-surface);
+    border: 1px solid var(--color-accent);
+    border-radius: 999px;
+    box-shadow: var(--shadow-card);
 }
 
-.menuItemMain {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+.cartBar .cartButton { width: auto; padding: 8px 18px; }
+
+@media (max-width: 720px) {
+    .cartBar {
+        bottom: calc(76px + env(safe-area-inset-bottom));
+        width: calc(100% - 32px);
+        justify-content: space-between;
+    }
 }
 
-.subList {
-  margin-top: 8px;
-  font-size: 14px;
+@media (max-width: 600px) {
+    .hero { min-height: 200px; }
+    .heroContent { padding: 16px; }
+    .heroTitle { font-size: 1.5rem; }
+    .item { padding: 14px; }
+    .itemImage { width: 88px; height: 88px; }
 }
 
-.subList ul {
-  margin: 4px 0 0 0;
-  padding-left: 20px;
+@media (max-width: 380px) {
+  .itemImage { width: 76px; height: 76px; }
 }
 
-.unavailableBadge {
-  background: #f0f0f0;
-  color: #666;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  margin-left: 6px;
+.itemImageFallback {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 112px;
+    height: 112px;
+    font-size: 2rem;
+    background: linear-gradient(135deg, var(--color-surface-2), rgba(249, 115, 22, 0.18));
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.itemSoldOut .itemImageFallback { opacity: 0.55; filter: grayscale(0.7); }
+
+@media (max-width: 380px) {
+    .itemImageFallback { width: 76px; height: 76px; font-size: 1.5rem; }
 }

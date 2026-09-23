@@ -4,7 +4,7 @@ import Input from '../../components/Input';
 import Select from '../../components/Select';
 import Button from '../../components/Button';
 import ErrorMessage from '../../components/ErrorMessage';
-import styles from '../../styles/ProfilePage.module.css';
+import styles from './ItemOptionManager.module.css';
 
 function AddonManager({ restaurantId, menuItemId, attachedAddons, onAddonAttached, onAddonUpdated, onAddonDetached }) {
   const [restaurantAddons, setRestaurantAddons] = useState([]);
@@ -93,6 +93,7 @@ function AddonManager({ restaurantId, menuItemId, attachedAddons, onAddonAttache
   }
 
   async function handleDetach(addonId) {
+    if (!window.confirm('Remove this addon from the item?')) return;
     try {
       await detachAddon(menuItemId, addonId);
       onAddonDetached(addonId);
@@ -101,42 +102,54 @@ function AddonManager({ restaurantId, menuItemId, attachedAddons, onAddonAttache
     }
   }
 
-  if (loading) return <p>Loading addons...</p>;
+  if (loading) return <p className={styles.loading}>Loading add-ons...</p>;
 
   const attachable = restaurantAddons.filter(
     (a) => !attachedAddons.some((attached) => attached.id === a.id)
   );
 
   return (
-    <div>
-      <h2>Addons</h2>
-      <ul>
-        {attachedAddons.map((a) =>
-          editingId === a.id ? (
-            <li key={a.id}>
-              <form onSubmit={handleUpdate} className={styles.form}>
-                <ErrorMessage message={editError} />
-                <Input label="Name" name="editAddonName" value={editName} onChange={(e) => setEditName(e.target.value)} required />
-                <Input label="Price" name="editAddonPrice" type="number" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} required />
-                <Button loading={editSubmitting} loadingText="Saving...">Save</Button>
-                <button type="button" onClick={() => setEditingId(null)}>Cancel</button>
-              </form>
-            </li>
-          ) : (
-            <li key={a.id}>
-              {a.name} — ₹{a.price}
-              <button onClick={() => startEdit(a)}>Edit</button>
-              <button onClick={() => handleDetach(a.id)}>Remove from this item</button>
-            </li>
-          )
-        )}
-      </ul>
+    <section className={styles.card}>
+      <h2 className={styles.cardTitle}>Add-ons</h2>
+
+      {attachedAddons.length === 0 ? (
+        <p className={styles.emptyText}>No add-ons attached to this item yet.</p>
+      ) : (
+        <ul className={styles.list}>
+          {attachedAddons.map((a) =>
+            editingId === a.id ? (
+              <li key={a.id} className={styles.editRow}>
+                <form onSubmit={handleUpdate} className={styles.inlineForm}>
+                  <ErrorMessage message={editError} />
+                  <div className={styles.inlineFields}>
+                    <Input label="Name" name="editAddonName" value={editName} onChange={(e) => setEditName(e.target.value)} required />
+                    <Input label="Price" name="editAddonPrice" type="number" min="0" step="0.01" value={editPrice} onChange={(e) => setEditPrice(e.target.value)} required />
+                  </div>
+                  <div className={styles.inlineActions}>
+                    <Button loading={editSubmitting} loadingText="Saving..." className={styles.saveButton}>Save</Button>
+                    <button type="button" onClick={() => setEditingId(null)}>Cancel</button>
+                  </div>
+                </form>
+              </li>
+            ) : (
+              <li key={a.id} className={styles.row}>
+                <span className={styles.rowLabel}>{a.name} — {a.price > 0 ? `₹${a.price}` : 'Free'}</span>
+                <div className={styles.rowActions}>
+                  <button type="button" onClick={() => startEdit(a)}>Edit</button>
+                  <button type="button" className={styles.dangerButton} onClick={() => handleDetach(a.id)}>Remove</button>
+                </div>
+              </li>
+            )
+          )}
+        </ul>
+      )}
 
       {attachable.length > 0 && (
-        <form onSubmit={handleAttach} className={styles.form}>
+        <form onSubmit={handleAttach} className={styles.subForm}>
+          <h3 className={styles.subTitle}>Attach an existing add-on</h3>
           <ErrorMessage message={attachError} />
           <Select
-            label="Attach Existing Addon"
+            label="Restaurant add-on"
             name="selectedAddon"
             value={selectedAddonId}
             onChange={(e) => setSelectedAddonId(e.target.value)}
@@ -145,18 +158,18 @@ function AddonManager({ restaurantId, menuItemId, attachedAddons, onAddonAttache
               ...attachable.map((a) => ({ value: a.id, label: `${a.name} (₹${a.price})` })),
             ]}
           />
-          <Button loading={attaching} loadingText="Attaching...">Attach</Button>
+          <Button loading={attaching} loadingText="Attaching..." className={styles.subButton}>Attach</Button>
         </form>
       )}
 
-      <h3>Or create a new addon for this restaurant</h3>
-      <form onSubmit={handleCreate} className={styles.form}>
+      <form onSubmit={handleCreate} className={styles.subForm}>
+        <h3 className={styles.subTitle}>Or create a new add-on for this restaurant</h3>
         <ErrorMessage message={createError} />
-        <Input label="Addon Name (e.g. Extra Cheese)" name="addonName" value={name} onChange={(e) => setName(e.target.value)} required />
-        <Input label="Price" name="addonPrice" type="number" value={price} onChange={(e) => setPrice(e.target.value)} required />
-        <Button loading={creating} loadingText="Creating...">Create Addon</Button>
+        <Input label="Add-on name (e.g. Extra Cheese)" name="addonName" value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input label="Price" name="addonPrice" type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} required />
+        <Button loading={creating} loadingText="Creating..." className={styles.subButton}>Create Add-on</Button>
       </form>
-    </div>
+    </section>
   );
 }
 

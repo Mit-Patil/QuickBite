@@ -1,28 +1,12 @@
-import { Outlet, Link, useNavigate } from "react-router-dom";
-import { useAuth } from "../../auth/AuthContext";
-import styles from '../../styles/DashboardLayout.module.css';
+import AppShell from '../../components/AppShell';
 
-function RestaurantLayout(){
-    const { logout } = useAuth();
-    const navigate = useNavigate();
+const LINKS = [
+  { to: '/restaurant', label: 'Dashboard', icon: '🍴', end: true },
+  { to: '/restaurant/profile', label: 'Profile', icon: '👤' },
+];
 
-    function handleLogout(){
-        logout();
-        navigate('/login');
-    }
-
-    return (
-        <div>
-            <nav className={styles.nav}>
-                <Link to="/restaurant">Dashboard</Link>
-                <Link to="/restaurant/profile">Profile</Link>
-                <button onClick={handleLogout}>Logout</button>
-            </nav>
-            <main className={styles.main}>
-                <Outlet />
-            </main>
-        </div>
-    );
+function RestaurantLayout() {
+  return <AppShell links={LINKS} roleLabel="Restaurant" />;
 }
 
 export default RestaurantLayout;

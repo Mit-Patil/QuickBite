@@ -24,16 +24,19 @@ import OrderConfirmationPage from './pages/customer/OrderConfirmationPage';
 import OrdersPage from './pages/customer/OrdersPage';
 import RestaurantOrdersPage from './pages/restaurant-owner/OrdersPage';
 import MapTest from './pages/customer/MapTest';
+import AuthLayout from './components/AuthLayout';
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace/>}/>
-      <Route path="/login" element={<Login />} />
-
-      <Route path="/register/customer" element={<CustomerRegister />} />
-      <Route path="/register/restaurant" element={<RestaurantOwnerRegister />} />
-      <Route path="/register/delivery-partner" element={ <DeliveryPartnerRegister /> } />
+      
+      <Route element={<AuthLayout />}>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register/customer" element={<CustomerRegister />} />
+        <Route path="/register/restaurant" element={<RestaurantOwnerRegister />} />
+        <Route path="/register/delivery-partner" element={<DeliveryPartnerRegister />} />
+      </Route>
 
       <Route
         path="/customer/*"
