@@ -853,3 +853,29 @@
 **Next session starts with:**
 - Begin submission documentation (separate chat) — architecture, design decisions, known limitations/future scope list (Kafka, distance-based browsing, delivery live tracking, owner-logo-on-cards via events)
 - First submission checkpoint: Saga + core services + this design pass is the scope; Kafka explicitly not required
+
+## Session 41 — 2026-10-01 to 2026-10-05 — Kafka event backbone
+**Worked on:**
+- Docker: added Kafka (apache/kafka:3.8.0, KRaft mode, no Zookeeper) and Kafka UI (provectuslabs/kafka-ui) to docker-compose.yml, with dual listeners (PLAINTEXT internal on 9092, PLAINTEXT_HOST external on 9094) so both Docker-internal services and the host-run Spring Boot app can reach the broker
+- Designed event schema: single topic per domain (order-events, payment-events), each message keyed by orderId so Kafka's per-partition ordering guarantee keeps every event for one order in order, even across producers/services. Events are lean "something happened" signals (eventType discriminator + ids + status), not full snapshots — consumers needing detail call the existing REST APIs
+- restaurant-order-service (Java/Spring Kafka): OrderEventPublisher (try/catch-wrapped — a Kafka outage can never fail a real order), publishing ORDER_CONFIRMED / PAYMENT_FAILED / STATUS_CHANGED / ORDER_CANCELLED from OrderService's existing Saga transition points, including on the reconciliation-success path. Custom ObjectMapper with JavaTimeModule so Instant serializes as ISO-8601, not epoch-seconds. OrderEventListener (@KafkaListener) consumes order-events, logging each event; custom ConsumerFactory/KafkaListenerContainerFactory beans (needed because a custom ProducerFactory bean suppresses full auto-configuration) wrap JsonDeserializer in ErrorHandlingDeserializer so one bad message can't kill the whole consumer thread
+- payment-service (Node/kafkajs): mirrored producer (lazy-connect, same try/catch safety rule) publishing PAYMENT_CHARGED / PAYMENT_FAILED / REFUND_SUCCEEDED / REFUND_FAILED from createPayment and refundPayment, including the previously-silent refund-failure path that only ever logged to a server console before
+
+**Decisions made:**
+- One topic per domain, not one topic per event type — correct choice for an ordered lifecycle where a single consumer often needs every stage for one order in sequence
+- Kafka failures are logged, never allowed to fail the HTTP response — verified deliberately by stopping the Kafka container mid-order and confirming checkout still succeeds normally
+- ADD_TYPE_INFO_HEADERS left off (polyglot stream — a Java class name in headers is meaningless to the Node consumer); Java consumer instead told its target type explicitly via JsonDeserializer.VALUE_DEFAULT_TYPE
+- Deprecated Spring Kafka JsonSerializer/JsonDeserializer kept as-is (no complete replacement exists yet in this Spring Boot/Spring Kafka version pairing); suppressed locally, documented as a known future migration rather than chased mid-project
+
+**Blockers/issues (all resolved, each a real bug found via actual testing, not assumed):**
+- Docker Compose YAML indentation bug: the new kafka service block landed under the top-level volumes: section by mistake, read error message pointed straight at it
+- Port 9094 was only configured inside the container's listener config, never actually published in docker-compose.yml's ports: list — container healthy the whole time, host just couldn't reach it; classic case of the error symptom (endless reconnect loop) living one layer away from the real cause
+- jackson-datatype-jsr310 missing — Instant serialization failed with a clear named exception once Jackson actually tried; separately, after adding JavaTimeModule, the module's default behavior (timestamp, not ISO string) needed an explicit disable
+- @KafkaListener had zero effect with no error at all until @EnableKafka was added — then a precise NoSuchBeanDefinitionException for kafkaListenerContainerFactory revealed the real second half of the problem: the custom producer config had suppressed Spring Boot's consumer auto-configuration too
+- Generic type mismatch (JsonDeserializer<Object> vs the ConsumerFactory<String, OrderEvent> return type) — real compiler error, fixed by constructing JsonDeserializer with the explicit OrderEvent.class target type
+- OrderEvent had no no-args/all-args constructor — Jackson could serialize it (via @Builder-generated fields) but not deserialize it; every historical test message was stuck retrying forever on the same offset until @NoArgsConstructor + @AllArgsConstructor were added
+- Net effect of the last two: 18+ offsets of permanently-failing historical messages on first successful consumer startup, which the fix then let drain cleanly with no replay of already-processed events after a restart (confirmed deliberately)
+
+**Next session starts with (new chat):**
+- delivery-matching-service (Node.js + Redis GEO) — new standalone service, first real consumer of order-events (filtered on ORDER_CONFIRMED), replacing the logging-only OrderEventListener's role as "the interesting consumer"
+- Then live tracking/notifications (WebSockets), then containerizing + deploying to a free tier
