@@ -3,6 +3,7 @@ package com.quickbite.restaurant_order_service.service;
 import com.quickbite.restaurant_order_service.dto.*;
 import com.quickbite.restaurant_order_service.entity.*;
 import com.quickbite.restaurant_order_service.entity.Order.OrderStatus;
+import com.quickbite.restaurant_order_service.event.OrderEventPublisher;
 import com.quickbite.restaurant_order_service.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,7 +30,8 @@ public class OrderService {
     private final OrderItemAddonRepository orderItemAddonRepository;
     private final MenuItemRepository menuItemRepository;
     private final RestClient paymentServiceClient;
-
+    private final OrderEventPublisher orderEventPublisher;
+    
     @Value("${order.tax-rate:0.05}")
     private BigDecimal taxRate;
 
@@ -187,6 +189,17 @@ public class OrderService {
                 }
                 cartItemRepository.deleteByCartId(cart.getId());
                 cartRepository.delete(cart);
+                
+                orderEventPublisher.publish(OrderEvent.builder()
+                .eventType("ORDER_CONFIRMED")
+                .orderId(order.getId())
+                .customerId(order.getCustomerId())
+                .restaurantId(order.getRestaurant().getId())
+                .status(order.getStatus().name())
+                .previousStatus(OrderStatus.PENDING.name())
+                .totalAmount(order.getTotalAmount())
+                .occurredAt(java.time.Instant.now())
+                .build());
                 return toResponse(order);
             }
             
@@ -207,12 +220,35 @@ public class OrderService {
                 }
                 cartItemRepository.deleteByCartId(cart.getId());
                 cartRepository.delete(cart);
+                
+                orderEventPublisher.publish(OrderEvent.builder()
+                        .eventType("ORDER_CONFIRMED")
+                        .orderId(order.getId())
+                        .customerId(order.getCustomerId())
+                        .restaurantId(order.getRestaurant().getId())
+                        .status(order.getStatus().name())
+                        .previousStatus(OrderStatus.PENDING.name())
+                        .totalAmount(order.getTotalAmount())
+                        .occurredAt(java.time.Instant.now())
+                        .build()
+                );
             } else {
                 compensateFailedPayment(order, cartItems);
                 order.setStatus(OrderStatus.PAYMENT_FAILED);
                 order = orderRepository.save(order);
                 cart.setProcessing(false);
                 cartRepository.save(cart);
+                
+                orderEventPublisher.publish(OrderEvent.builder()
+                .eventType("PAYMENT_FAILED")
+                .orderId(order.getId())
+                .customerId(order.getCustomerId())
+                .restaurantId(order.getRestaurant().getId())
+                .status(order.getStatus().name())
+                .previousStatus(OrderStatus.PENDING.name())
+                .occurredAt(java.time.Instant.now())
+                .build());
+                
                 throw new IllegalStateException("Payment failed: " + paymentResponse.getFailureReason());
             }
 
@@ -279,8 +315,22 @@ public class OrderService {
         
         validateStatusTransition(order.getStatus(), newStatus);
         
+        OrderStatus previousStatus = order.getStatus();
+        
         order.setStatus(newStatus);
         order = orderRepository.save(order);
+        
+        orderEventPublisher.publish(OrderEvent.builder()
+                .eventType("STATUS_CHANGED")
+                .orderId(order.getId())
+                .customerId(order.getCustomerId())
+                .restaurantId(order.getRestaurant().getId())
+                .status(newStatus.name())
+                .previousStatus(previousStatus.name())
+                .occurredAt(java.time.Instant.now())
+                .build()
+        );
+        
         return toResponse(order);
     }
     
@@ -331,9 +381,24 @@ public class OrderService {
             }
         }
         
+        OrderStatus previousStatus = order.getStatus();
+        
         order.setStatus(OrderStatus.CANCELLED);
         order.setCancellationReason(request.getReason());
         order = orderRepository.save(order);
+        
+        orderEventPublisher.publish(OrderEvent.builder()
+            .eventType("ORDER_CANCELLED")
+            .orderId(order.getId())
+            .customerId(order.getCustomerId())
+            .restaurantId(order.getRestaurant().getId())
+            .status(OrderStatus.CANCELLED.name())
+            .previousStatus(previousStatus.name())
+            .cancellationReason(request.getReason())
+            .occurredAt(java.time.Instant.now())
+            .build()
+        );
+        
         return toResponse(order);
     }
     
