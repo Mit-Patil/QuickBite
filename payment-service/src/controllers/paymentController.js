@@ -1,4 +1,5 @@
 const Payment = require('../models/Payment');
+const { publish } = require('../kafka/paymentEventPublisher');
 
 function simulateCharge(method, amount){
     if(method == 'COD'){
@@ -45,6 +46,15 @@ async function createPayment(req, res, next){
             failureReason: chargeResult.failureReason
         });
 
+        await publish(buildPaymentEvent({
+            eventType: chargeResult.status === 'SUCCESS' ? 'PAYMENT_CHARGED' : 'PAYMENT_FAILED',
+            orderId: payment.orderId,
+            customerId: payment.customerId,
+            amount: payment.amount,
+            method: payment.method,
+            failureReason: payment.failureReason,
+        }));
+
         console.log('Simulating slow response for testing...');
         await new Promise(resolve => setTimeout(resolve, 15000));
 
@@ -69,10 +79,23 @@ async function refundPayment(req,res,next){
         payment.status = 'REFUNDED';
         await payment.save();
 
+        await publish(buildPaymentEvent({
+            eventType: 'REFUND_SUCCEEDED',
+            orderId: payment.orderId,
+            customerId: payment.customerId,
+            amount: payment.amount,
+            method: payment.method,
+        }));
+
         console.log('Refund processed for order: ', orderId);
         res.status(200).json(payment);
 
     } catch (err) {
+        await publish(buildPaymentEvent({
+            eventType: 'REFUND_FAILED',
+            orderId: req.params.orderId,
+            failureReason: err.message,
+        }));
          console.error('refundPayment error:', err.message);
         next(err);
     }
@@ -93,4 +116,16 @@ async function getPaymentByKey(req,res,next){
     }
 }
 
-module.exports = {createPayment, refundPayment, getPaymentByKey};
+function buildPaymentEvent({ eventType, orderId, customerId, amount, method, failureReason, occurredAt }){
+    return {
+        eventType,
+        orderId,
+        customerId: customerId ?? null,
+        amount: amount ?? null,
+        method: method ?? null,
+        failureReason: failureReason ?? null,
+        occurredAt: occurredAt ?? new Date().toISOString(),
+    };
+}
+
+module.exports = {createPayment, refundPayment, getPaymentByKey, buildPaymentEvent};
