@@ -879,3 +879,36 @@
 **Next session starts with (new chat):**
 - delivery-matching-service (Node.js + Redis GEO) — new standalone service, first real consumer of order-events (filtered on ORDER_CONFIRMED), replacing the logging-only OrderEventListener's role as "the interesting consumer"
 - Then live tracking/notifications (WebSockets), then containerizing + deploying to a free tier
+
+## Session 42 — 2026-10-10 — delivery-matching-service
+**Worked on:**
+- Added Redis (redis:7-alpine, no volume) to docker-compose.yml; learned Redis GEO by hand in redis-cli (GEOADD / GEOSEARCH, longitude-first ordering)
+- Scaffolded delivery-matching-service (Node + Express, port 8084, src/ layout) mirroring payment-service, with reusable foundations: env.js that fails fast on missing required vars, AppError hierarchy (ValidationError/NotFound/Unauthorized/Forbidden carrying statusCode) so errorHandler needs no per-error branching, authenticate + requireRole(...) middleware factory, withRetry utility, one shared Kafka client and a topic-parameterised producer
+- Built locationService as the only file touching Redis GEO: reportLocation, claimPartner, markFree, goOffline, findNearest. Redis GEO members cannot expire individually, so each ping also sets a 30s heartbeat key and findNearest drops and lazily removes partners without one
+- Busy handling: separate busy flag (2h self-healing TTL) so a busy partner who keeps pinging refreshes the heartbeat but never re-enters the pool; claimPartner uses SET NX so two simultaneous orders cannot claim the same partner
+- Partner endpoints POST /api/delivery/location and /offline behind authenticate + requireRole('DELIVERY_PARTNER'); partner id taken from the verified JWT, never the body
+- Kafka consumer (own consumer group, fromBeginning=false, per-message try/catch) filters ORDER_CONFIRMED, fetches restaurant coordinates from restaurant-order-service (3s timeout, retries for transient failures only), finds the nearest partner and publishes DELIVERY_ASSIGNED or NO_PARTNER_AVAILABLE to a new delivery-events topic keyed by orderId
+- Idempotent matching: assignment stored per order for 24h, redelivered events are skipped
+- Verified end to end: nearest-first search, heartbeat expiry and cleanup, busy partner excluded while still pinging, 400/401 paths, order -> DELIVERY_ASSIGNED at 0.48 km, NO_PARTNER_AVAILABLE with no partner online, both events seen in Kafka UI
+
+**Decisions made:**
+- Events stay lean: ORDER_CONFIRMED carries restaurantId only; the matching service looks up coordinates over REST (retry + timeout) rather than snapshotting them into the event
+- Partner location and availability live in Redis only (ephemeral); Postgres current_lat/lng stays as display-only "last known location". Profile-page location save does NOT make a partner matchable, a "Go online" action pinging the delivery service is needed
+- fromBeginning=false for this consumer because it acts on events; replaying historical test orders would assign partners to dead orders
+- Errors carry a statusCode instead of name-string checks; internalAuth middleware deliberately not built yet since nothing is called service-to-service here
+
+**Blockers/issues:**
+- restaurant-order-service failed to start with NoClassDefFoundError: UpdateOrderStatusRequest (not a port conflict): stale target/ output, "Nothing to compile - all classes are up to date"; fixed with mvnw clean
+- First matching attempt returned 0 candidates because the partner's 30s heartbeat expired before the manual order; second attempt failed because the ping loop ran in a new terminal where $token was empty (PowerShell variables do not persist across terminals), so every ping got 401. Fixed by login + token check + loop in one window
+- Harmless: kafkajs partitioner warning and TimeoutNegativeWarning on Node 24
+
+**Known limitations / future scope:**
+- No retry when no partner is available; no dead-letter topic; PENDING (unverified) partners can go online
+- Nothing calls markFree on DELIVERED, so a partner stays busy until the 2h TTL
+- restaurant-order-service does not consume delivery-events, so orders.delivery_partner_id stays null
+- Lazy cleanup only removes stale partners that a search happens to find
+
+**Next session starts with:**
+- markFree on DELIVERED/CANCELLED: delivery-service consumes order-events STATUS_CHANGED/ORDER_CANCELLED to release the partner
+- restaurant-order-service consumes delivery-events to store delivery_partner_id on the order
+- Retry for NO_PARTNER_AVAILABLE, then delivery-partner "Go online" frontend and WebSocket live tracking
