@@ -43,4 +43,12 @@ console.log(`Order ${orderId}: ${candidates.length} candidate(s) within ${search
   await publishEvent('NO_PARTNER_AVAILABLE', orderId, { reason: 'NONE_NEARBY' });
 }
 
-module.exports = { matchOrder };
+async function handleStatusChange({ orderId, status }) {
+  console.log(`Order ${orderId} status -> ${status}`);
+}
+
+async function handleCancellation({ orderId, cancellationReason }) {
+  console.log(`Order ${orderId} cancelled: ${cancellationReason}`);
+}
+
+module.exports = { matchOrder, handleStatusChange, handleCancellation };

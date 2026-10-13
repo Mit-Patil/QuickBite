@@ -4,6 +4,12 @@ const matchingService = require('../services/matchingService');
 
 const consumer = kafka.consumer({ groupId: consumerGroupId });
 
+const handlers = {
+    ORDER_CONFIRMED: matchingService.matchOrder,
+    STATUS_CHANGED: matchingService.handleStatusChange,
+    ORDER_CANCELLED: matchingService.handleCancellation,
+};
+
 async function startConsumer() {
   await consumer.connect();
   await consumer.subscribe({ topic: orderEventsTopic, fromBeginning: false });
@@ -18,12 +24,13 @@ async function startConsumer() {
         return;
       }
 
-      if (event.eventType !== 'ORDER_CONFIRMED') return;
+      const handler = handlers[event.eventType];
+      if (!handler) return; 
 
       try {
-        await matchingService.matchOrder(event);
+        await handler(event);
       } catch (err) {
-        console.error(`Matching failed for order ${event.orderId}:`, err.message);
+        console.error(`${event.eventType} failed for order ${event.orderId}:`, err.message);
       }
     },
   });
