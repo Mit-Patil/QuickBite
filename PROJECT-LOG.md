@@ -918,6 +918,8 @@
 - Wrote scripts/matching-safety-test.js: calls matchOrder directly (no HTTP/Kafka timing) with Promise.all to force a real race, then replays an assigned order
 - Race: two orders, one partner. Both saw the partner as a candidate before either claimed; SET NX let exactly one win, the other got NO_PARTNER_AVAILABLE
 - Duplicate delivery: redelivered event skipped via per-order assignment key, no second assignment
+- Refactored the delivery consumer to route events through an eventType -> handler map; added log-only handlers for STATUS_CHANGED and ORDER_CANCELLED
+- Verified with one order: ORDER_CONFIRMED still reaches matchOrder, status change and cancellation (with reason) arrive in the delivery service
 
 **Decisions made:**
 - Test matchOrder directly instead of racing two real orders through the frontend: deterministic and repeatable
