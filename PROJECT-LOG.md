@@ -912,3 +912,21 @@
 - markFree on DELIVERED/CANCELLED: delivery-service consumes order-events STATUS_CHANGED/ORDER_CANCELLED to release the partner
 - restaurant-order-service consumes delivery-events to store delivery_partner_id on the order
 - Retry for NO_PARTNER_AVAILABLE, then delivery-partner "Go online" frontend and WebSocket live tracking
+
+## Session 43 — 2026-10-13 — Matching safety tests
+**Worked on:**
+- Wrote scripts/matching-safety-test.js: calls matchOrder directly (no HTTP/Kafka timing) with Promise.all to force a real race, then replays an assigned order
+- Race: two orders, one partner. Both saw the partner as a candidate before either claimed; SET NX let exactly one win, the other got NO_PARTNER_AVAILABLE
+- Duplicate delivery: redelivered event skipped via per-order assignment key, no second assignment
+
+**Decisions made:**
+- Test matchOrder directly instead of racing two real orders through the frontend: deterministic and repeatable
+
+**Blockers/issues:**
+- Stale partner left in partners:available from the earlier test (lazy cleanup only removes entries a search touches); removed manually with ZREM before running
+
+**Known limitations:**
+- The race loser is stranded with NO_PARTNER_AVAILABLE; nothing retries yet
+
+**Next session starts with:**
+- Consume STATUS_CHANGED / ORDER_CANCELLED in the delivery service to release the partner
