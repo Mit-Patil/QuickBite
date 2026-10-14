@@ -33,6 +33,9 @@ spring:
 kafka:
   topic:
     order-events: order-events
+    delivery-events: delivery-events
+  group:
+    delivery-events: restaurant-order-service-delivery-consumers
     
 server:
   port: 8082

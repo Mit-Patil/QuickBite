@@ -3,6 +3,7 @@ package com.quickbite.restaurant_order_service.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.quickbite.restaurant_order_service.dto.DeliveryEvent;
 import com.quickbite.restaurant_order_service.dto.OrderEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -28,6 +29,9 @@ public class KafkaConsumerConfig {
     @Value("${spring.kafka.consumer.group-id}")
     private String groupId;
 
+    @Value("${kafka.group.delivery-events}")
+    private String deliveryGroupId;
+    
     private ObjectMapper buildObjectMapper() {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
@@ -35,32 +39,46 @@ public class KafkaConsumerConfig {
         return mapper;
     }
 
-    @Bean
-    public ConsumerFactory<String, OrderEvent> orderEventConsumerFactory() {
+    private <T> ConsumerFactory<String, T> buildConsumerFactory(Class<T> type, String group) {
         Map<String, Object> config = new HashMap<>();
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        config.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, group);
         config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
-        config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
-        config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
-        config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.quickbite.restaurant_order_service.dto");
-        config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
-        config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, OrderEvent.class.getName());
 
-        JsonDeserializer<OrderEvent> jsonDeserializer =
-                new JsonDeserializer<>(OrderEvent.class, buildObjectMapper());
+        JsonDeserializer<T> json = new JsonDeserializer<>(type, buildObjectMapper());
+        json.addTrustedPackages("com.quickbite.restaurant_order_service.dto");
+        json.setUseTypeHeaders(false);
 
         return new DefaultKafkaConsumerFactory<>(config,
                 new StringDeserializer(),
-                new ErrorHandlingDeserializer<>(jsonDeserializer));
+                new ErrorHandlingDeserializer<>(json));
+    }
+
+    private <T> ConcurrentKafkaListenerContainerFactory<String, T> buildContainerFactory(
+            ConsumerFactory<String, T> consumerFactory) {
+        ConcurrentKafkaListenerContainerFactory<String, T> factory =
+                new ConcurrentKafkaListenerContainerFactory<>();
+        factory.setConsumerFactory(consumerFactory);
+        return factory;
+    }
+
+    @Bean
+    public ConsumerFactory<String, OrderEvent> orderEventConsumerFactory() {
+        return buildConsumerFactory(OrderEvent.class, groupId);
     }
 
     @Bean
     public ConcurrentKafkaListenerContainerFactory<String, OrderEvent> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, OrderEvent> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(orderEventConsumerFactory());
-        return factory;
+        return buildContainerFactory(orderEventConsumerFactory());
+    }
+
+    @Bean
+    public ConsumerFactory<String, DeliveryEvent> deliveryEventConsumerFactory() {
+        return buildConsumerFactory(DeliveryEvent.class, deliveryGroupId);
+    }
+
+    @Bean
+    public ConcurrentKafkaListenerContainerFactory<String, DeliveryEvent> deliveryEventListenerFactory() {
+        return buildContainerFactory(deliveryEventConsumerFactory());
     }
 }

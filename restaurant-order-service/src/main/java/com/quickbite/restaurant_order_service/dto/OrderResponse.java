@@ -20,4 +20,5 @@ public class OrderResponse {
     private BigDecimal totalAmount;
     private String cancellationReason;
     private LocalDateTime placedAt;
+    private UUID deliveryPartnerId;
 }

@@ -15,6 +15,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 
 @Service
@@ -31,6 +33,7 @@ public class OrderService {
     private final MenuItemRepository menuItemRepository;
     private final RestClient paymentServiceClient;
     private final OrderEventPublisher orderEventPublisher;
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
     
     @Value("${order.tax-rate:0.05}")
     private BigDecimal taxRate;
@@ -402,6 +405,26 @@ public class OrderService {
         return toResponse(order);
     }
     
+    @Transactional
+    public void assignDeliveryPartner(UUID orderId, UUID partnerId) {
+        Order order = orderRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            log.warn("DELIVERY_ASSIGNED for unknown order {}, ignoring", orderId);
+            return;
+        }
+        if (order.getStatus() == Order.OrderStatus.CANCELLED
+                || order.getStatus() == Order.OrderStatus.PAYMENT_FAILED) {
+            log.warn("Order {} is {}, not assigning partner {}", orderId, order.getStatus(), partnerId);
+            return;
+        }
+        if (partnerId.equals(order.getDeliveryPartnerId())) {
+            return;
+        }
+        order.setDeliveryPartnerId(partnerId);
+        orderRepository.save(order);
+        log.info("Assigned partner {} to order {}", partnerId, orderId);
+    }
+    
     private OrderResponse toResponse(Order order) {
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
 
@@ -439,6 +462,7 @@ public class OrderService {
                 .totalAmount(order.getTotalAmount())
                 .cancellationReason(order.getCancellationReason())
                 .placedAt(order.getPlacedAt())
+                .deliveryPartnerId(order.getDeliveryPartnerId())
                 .build();
     }
 }
