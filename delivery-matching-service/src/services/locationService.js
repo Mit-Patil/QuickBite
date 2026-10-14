@@ -27,9 +27,6 @@ async function reportLocation(partnerId, lat, lng) {
   return { available: !isBusy };
 }
 
-async function markFree(partnerId) {
-  await redis.del(busyKey(partnerId));
-}
 
 async function goOffline(partnerId) {
   await redis
@@ -63,11 +60,26 @@ async function findNearest(lat, lng, radiusKm, limit = 5) {
   return fresh.slice(0, limit);
 }
 
-async function claimPartner(partnerId) {
-  const won = await redis.set(busyKey(partnerId), '1', 'EX', BUSY_TTL_SECONDS, 'NX');
+redis.defineCommand('releaseIfOwner', {
+  numberOfKeys: 1,
+  lua: `
+    if redis.call('GET', KEYS[1]) == ARGV[1] then
+      return redis.call('DEL', KEYS[1])
+    end
+    return 0
+  `,
+});
+
+async function claimPartner(partnerId, orderId) {
+  const won = await redis.set(busyKey(partnerId), orderId, 'EX', BUSY_TTL_SECONDS, 'NX');
   if (won !== 'OK') return false;
   await redis.zrem(AVAILABLE_KEY, partnerId);
   return true;
 }
 
-module.exports = { reportLocation, claimPartner, markFree, goOffline, findNearest };
+async function  releasePartner(partnerId, orderId) {
+  const deleted = await redis.releaseIfOwner(busyKey(partnerId), orderId);
+  return deleted === 1;
+}
+
+module.exports = { reportLocation, claimPartner, releasePartner, goOffline, findNearest };

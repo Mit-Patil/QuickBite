@@ -31,7 +31,7 @@ async function matchOrder({ orderId, restaurantId }) {
 const candidates = await locationService.findNearest(latitude, longitude, searchRadiusKm, 5);
 console.log(`Order ${orderId}: ${candidates.length} candidate(s) within ${searchRadiusKm} km of (${latitude}, ${longitude})`);
   for (const { partnerId, distanceKm } of candidates) {
-    if (await locationService.claimPartner(partnerId)) {
+    if (await locationService.claimPartner(partnerId, orderId)) {
       await redis.set(assignmentKey(orderId), partnerId, 'EX', ASSIGNMENT_TTL_SECONDS);
       await publishEvent('DELIVERY_ASSIGNED', orderId, { partnerId, distanceKm });
       console.log(`Order ${orderId} -> partner ${partnerId} (${distanceKm} km)`);
@@ -43,12 +43,25 @@ console.log(`Order ${orderId}: ${candidates.length} candidate(s) within ${search
   await publishEvent('NO_PARTNER_AVAILABLE', orderId, { reason: 'NONE_NEARBY' });
 }
 
-async function handleStatusChange({ orderId, status }) {
-  console.log(`Order ${orderId} status -> ${status}`);
+async function releaseForOrder(orderId, reason) {
+  const partnerId = await redis.get(assignmentKey(orderId));
+  if(!partnerId) return;
+
+  const released = await locationService.releasePartner(partnerId, orderId);
+  console.log(
+    released
+      ? `Partner ${partnerId} released (order ${orderId} ${reason})`
+      : `Partner ${partnerId} not released: no longer busy with order ${orderId}`
+  );
 }
 
-async function handleCancellation({ orderId, cancellationReason }) {
-  console.log(`Order ${orderId} cancelled: ${cancellationReason}`);
+async function handleStatusChange({ orderId, status }) {
+  if (status !== 'DELIVERED') return;
+  await releaseForOrder(orderId, 'delivered');
+}
+
+async function handleCancellation({ orderId }) {
+  await releaseForOrder(orderId, 'cancelled');
 }
 
 module.exports = { matchOrder, handleStatusChange, handleCancellation };
