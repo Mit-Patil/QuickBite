@@ -913,22 +913,55 @@
 - restaurant-order-service consumes delivery-events to store delivery_partner_id on the order
 - Retry for NO_PARTNER_AVAILABLE, then delivery-partner "Go online" frontend and WebSocket live tracking
 
-## Session 43 — 2026-10-13 — Matching safety tests
+## Session 43 — 2026-10-13 — Matching safety tests, event routing, partner release
 **Worked on:**
-- Wrote scripts/matching-safety-test.js: calls matchOrder directly (no HTTP/Kafka timing) with Promise.all to force a real race, then replays an assigned order
-- Race: two orders, one partner. Both saw the partner as a candidate before either claimed; SET NX let exactly one win, the other got NO_PARTNER_AVAILABLE
-- Duplicate delivery: redelivered event skipped via per-order assignment key, no second assignment
-- Refactored the delivery consumer to route events through an eventType -> handler map; added log-only handlers for STATUS_CHANGED and ORDER_CANCELLED
-- Verified with one order: ORDER_CONFIRMED still reaches matchOrder, status change and cancellation (with reason) arrive in the delivery service
+- scripts/matching-safety-test.js: calls matchOrder directly with Promise.all to force a real race. Two orders saw the same candidate before either claimed; SET NX let exactly one win. Replaying an assigned order is skipped via the per-order assignment key
+- Refactored the delivery consumer to route events through an eventType -> handler map (ORDER_CONFIRMED, STATUS_CHANGED, ORDER_CANCELLED); separated JSON-parse errors from handler errors. Verified with one order: ORDER_CONFIRMED still reaches matchOrder, status change and cancellation reason arrive
+- Partner release code: busy flag now stores the owning orderId; releasePartner uses a Lua compare-and-delete so only the order that claimed the partner can free them; DELIVERED and CANCELLED events release the assigned partner
+- Verified by script (TEST 3): wrong order cannot release, owner releases once, second release is a no-op
+- Removed an accidentally committed scratch.js and added it to .gitignore
 
 **Decisions made:**
-- Test matchOrder directly instead of racing two real orders through the frontend: deterministic and repeatable
+- Test matchOrder directly instead of racing real orders through the frontend: deterministic and repeatable
+- Store the order id in the busy flag and release atomically in Lua rather than GET-then-DEL: avoids the check-then-act race already fixed with SET NX
+- Keep the assignment key after release as the idempotency record
+- Released partner re-enters the pool on their next ping, since the service does not know their position
 
 **Blockers/issues:**
-- Stale partner left in partners:available from the earlier test (lazy cleanup only removes entries a search touches); removed manually with ZREM before running
+- Stale partner left in partners:available from an earlier test (lazy cleanup only removes entries a search touches); removed manually with ZREM
+- Real-flow release was NOT verified this session (no ping loop running, so manual orders got 0 candidates); verified in Session 44
 
 **Known limitations:**
-- The race loser is stranded with NO_PARTNER_AVAILABLE; nothing retries yet
+- Orders with NO_PARTNER_AVAILABLE are stranded; nothing retries yet
+- Released partners rejoin the pool on the next ping (up to about 10s)
 
 **Next session starts with:**
-- Consume STATUS_CHANGED / ORDER_CANCELLED in the delivery service to release the partner
+- Real-flow release check, then restaurant-order-service consuming delivery-events to store delivery_partner_id
+
+
+## Session 44 — 2026-10-14 — Partner release verified, delivery_partner_id stored on orders
+**Worked on:**
+- Real-flow release verified with a ping loop acting as the partner app: order assigned (busy flag held the orderId), cancel released the partner and a second order through DELIVERED released it again; partner returned to partners:available on the next ping both times
+- restaurant-order-service now consumes delivery-events: new DeliveryEvent DTO (ignoreUnknown fields), DeliveryEventListener with its own container factory and consumer group, OrderService.assignDeliveryPartner (idempotent, ignores unknown or cancelled/payment-failed orders), deliveryPartnerId added to OrderResponse and its mapper
+- Extracted the shared Kafka consumer recipe in KafkaConsumerConfig into generic buildConsumerFactory / buildContainerFactory helpers so a new event type is a two-bean addition
+- Verified: DELIVERY_ASSIGNED stored delivery_partner_id (DB query and GET /api/orders/{id}); NO_PARTNER_AVAILABLE logged with the order's partner left null
+
+**Decisions made:**
+- Separate event class and consumer group per topic instead of one generic listener: delivery events have a different shape from order events and independent offsets
+- Order-service only acts on DELIVERY_ASSIGNED for now; NO_PARTNER_AVAILABLE is only logged until a retry policy exists
+- deliveryPartnerId stays on cancelled orders as history
+
+**Blockers/issues:**
+- First API test returned no partner: deliveryPartnerId was missing from the OrderResponse mapper; the test caught it, fixed
+- Manual ping loop first ran without a token in a new terminal (PowerShell variables do not persist), reinforced the login + token-check + loop in one window pattern
+
+**Known limitations / future scope:**
+- Duplicate-event (idempotency) and unknown-order paths of assignDeliveryPartner are implemented but NOT yet verified via Kafka UI
+- Stranded order 2ac63fab (NO_PARTNER_AVAILABLE) is not retried
+- If DELIVERY_ASSIGNED were ever consumed before the order transaction commits, the assignment would be dropped with an "unknown order" warning (it arrived about 0.2s after confirmation here and worked)
+- Frontend does not show the assigned partner yet; no "Go online" button for partners
+
+**Next session starts with:**
+- Run the two unverified tests: in Kafka UI (topic delivery-events, Produce Message) send a duplicate DELIVERY_ASSIGNED for an assigned order (expect no second "Assigned" line) and one for a random UUID (expect an "unknown order" warning)
+- Retry for NO_PARTNER_AVAILABLE orders
+- Show the assigned partner on the customer order page; delivery-partner "Go online" button; then WebSocket live tracking
