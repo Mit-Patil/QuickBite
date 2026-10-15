@@ -5,6 +5,7 @@ const redis = require('./config/redis');
 const errorHandler = require('./middleware/errorHandler');
 const partnerRoutes = require('./routes/partnerRoutes');
 const { startConsumer } = require('./kafka/consumer');
+const { startRetryWorker } = require('./services/retryWorker');
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
@@ -18,6 +19,7 @@ app.use(errorHandler);
 async function start() {
   await redis.ping();
   await startConsumer();
+  startRetryWorker();
   app.listen(port, () => console.log(`delivery-matching-service on ${port}`));
 }
 

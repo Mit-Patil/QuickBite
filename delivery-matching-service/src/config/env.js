@@ -18,7 +18,10 @@ module.exports = {
   orderEventsTopic: 'order-events',
   deliveryEventsTopic: 'delivery-events',
   consumerGroupId: 'delivery-matching-service-consumers',
-  
+  retryDelaySeconds: 15,
+  retryTickMs: 5000,
+  maxRetryAttempts: 6,
+
   heartbeatTtlSeconds: 30,
   searchRadiusKm: 5,
 };
