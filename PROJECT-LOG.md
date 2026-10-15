@@ -965,3 +965,33 @@
 - Run the two unverified tests: in Kafka UI (topic delivery-events, Produce Message) send a duplicate DELIVERY_ASSIGNED for an assigned order (expect no second "Assigned" line) and one for a random UUID (expect an "unknown order" warning)
 - Retry for NO_PARTNER_AVAILABLE orders
 - Show the assigned partner on the customer order page; delivery-partner "Go online" button; then WebSocket live tracking
+
+## Session 45 — 2026-10-15 — Retry queue for stranded orders, give-up after max attempts
+**Worked on:**
+- Ran the two tests left open from Session 44 via Kafka UI: a duplicate DELIVERY_ASSIGNED for an already-assigned order produced no second "Assigned" line or update (idempotent); an assignment for an unknown order logged a WARN and was ignored without an exception
+- Retry queue in delivery-matching-service: Redis sorted set delivery:retry (member = orderId, score = due time in epoch ms) plus a hash for the restaurantId; retryWorker ticks every 5s and takes due orders with ZREM as the atomic claim (only one worker can win an order)
+- matchOrder publishes NO_PARTNER_AVAILABLE once on the first failed search; retries run internally and publish nothing; a successful retry assigns normally and clears the queue entry; cancelling an order removes it from the queue
+- Max attempts: a Redis hash counter (HINCRBY, atomic, survives restarts) counts failed searches; after 6 the order is removed from the queue and NO_PARTNER_FOUND is published with the attempt count
+- Verified: stranded order retried about every 15-20s; when the partner's current order was cancelled the partner was released and the next retry tick assigned a waiting order, and order-service stored its delivery_partner_id (the order stranded since Session 44); a waiting order cancelled by the restaurant stopped retrying and left an empty queue; Kafka UI showed one NO_PARTNER_AVAILABLE per order (not per retry); a fresh order gave up after 6 attempts (about 95s) with one NO_PARTNER_FOUND (attempts: 6) and empty delivery:retry and delivery:retry:attempts
+
+**Decisions made:**
+- Redis sorted set as the retry queue instead of setTimeout (lost on restart) or a Kafka delay topic (no native delayed delivery): survives restarts and fits the state the service already keeps in Redis
+- Two distinct events: NO_PARTNER_AVAILABLE ("nobody right now, still trying") and NO_PARTNER_FOUND ("gave up"), so consumers can react differently
+- Attempt counter lives in Redis, not memory, so a restart cannot reset it and let an order retry past the limit
+- restaurantId stored in a hash rather than packed into the sorted-set member, so removal on cancel needs only the orderId
+- Retry delay (15s) and max attempts (6) are short test values in env.js; production would use minutes
+
+**Blockers/issues:**
+- Retry worker logged "due is not iterable" on every tick: claimDue did not return its array. The worker's outer try/catch kept the service alive and the error repeated every 5s; fixed after comparing with the reference version
+- ECONNRESET errors from Redis and Kafka at startup while Docker was still settling; both clients reconnected on their own
+- Consumer group rejoin takes about 25s after each nodemon restart (old member session timeout); graceful consumer.disconnect() on shutdown not implemented
+
+**Known limitations / future scope:**
+- Nothing reacts to NO_PARTNER_FOUND yet: the order stays CONFIRMED with no partner (order 57b33513 is currently in this state)
+- claimDue removes an order from the queue before processing it, so a crash in that window loses the retry (at-most-once)
+- No fairness: when a partner frees up, whichever waiting order's retry tick fires first wins, not necessarily the oldest
+- Receipt of NO_PARTNER_FOUND by order-service was not checked in its console
+
+**Next session starts with:**
+- Order-service reacts to NO_PARTNER_FOUND: auto-cancel the order with a reason like "No delivery partner available" and reuse the existing cancel and refund path (minimum version: add the listener branch and cancel the order status only)
+- Then show the assigned partner on the customer order page, a delivery-partner "Go online" button, and WebSocket live tracking
