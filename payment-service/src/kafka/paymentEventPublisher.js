@@ -6,30 +6,33 @@ const kafka = new Kafka({
 });
 
 const producer = kafka.producer();
-let connected = false;
+let connecting  = null;
 
-async function ensureConnected() {
-  if (!connected) {
-    await producer.connect();
-    connected = true;
+function ensureConnected() {                    
+  if (!connecting) {
+    connecting = producer.connect().catch((err) => {
+      connecting = null;                        
+      throw err;
+    });
   }
+  return connecting;
 }
 
-async function publish(event) {
+async function send(event) {                    
   try {
     await ensureConnected();
     await producer.send({
       topic: 'payment-events',
-      messages: [
-        {
-          key: event.orderId,          
-          value: JSON.stringify(event),
-        },
-      ],
+      messages: [{ key: event.orderId, value: JSON.stringify(event) }],
     });
   } catch (err) {
     console.error(`Failed to publish PaymentEvent for order ${event.orderId}:`, err.message);
   }
+}
+
+function publish(event) {                       
+  send(event);
+  return Promise.resolve();                     
 }
 
 module.exports = { publish };

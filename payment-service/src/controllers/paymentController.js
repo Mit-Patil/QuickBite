@@ -55,8 +55,8 @@ async function createPayment(req, res, next){
             failureReason: payment.failureReason,
         }));
 
-        console.log('Simulating slow response for testing...');
-        await new Promise(resolve => setTimeout(resolve, 15000));
+        // console.log('Simulating slow response for testing...');
+        // await new Promise(resolve => setTimeout(resolve, 15000));
 
         res.status(201).json(payment);
     } catch (err) {
