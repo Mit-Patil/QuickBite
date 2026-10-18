@@ -995,3 +995,40 @@
 **Next session starts with:**
 - Order-service reacts to NO_PARTNER_FOUND: auto-cancel the order with a reason like "No delivery partner available" and reuse the existing cancel and refund path (minimum version: add the listener branch and cancel the order status only)
 - Then show the assigned partner on the customer order page, a delivery-partner "Go online" button, and WebSocket live tracking
+
+
+## Session 46 — 16–18 Oct 2026: Delivery retry/give-up, cancel hardening, Kafka outage testing
+
+### Goal
+Make the delivery flow safe to demo: orders with no nearby partner retry then give up, cancellation is race-safe, and no HTTP request waits on Kafka for long.
+
+### What was built / changed
+- delivery-matching-service: Redis retry queue (sorted set + atomic attempt counter, survives restarts), retry worker, give-up after 6 attempts publishing NO_PARTNER_FOUND, cancel removes the order from the queue and releases the partner. Kafka publishing is fire-and-forget and state is saved before events are published.
+- payment-service: Kafka publisher made non-blocking (one shared connect promise, send errors logged in the background, HTTP never waits); removed the internal-key console logs; the artificial slow-payment delay now runs only behind SIMULATE_SLOW_PAYMENT (checkout ~10 s -> ~0.2 s).
+- restaurant-order-service: consumes delivery-events and stores delivery_partner_id; cancelOrder split into a @Transactional owner entry point plus private applyCancellation (ready for a system auto-cancel); the cancel path loads the order with a PESSIMISTIC_WRITE lock (findWithLockById); producer max.block.ms=5000 set in KafkaProducerConfig; show-sql and Security DEBUG logging turned off.
+
+### Bugs found by testing, and fixes
+- Double cancel (two simultaneous requests) both succeeded: two refund calls, two ORDER_CANCELLED events, stock restored via a lost update. Fixed with a row lock; the second request now gets 409.
+- A long Kafka freeze made the order-service producer block HTTP threads for ~60 s (cold-producer cancel measured 61 s). The producer is built in KafkaProducerConfig, so the yml setting was ignored; setting max.block.ms=5000 there brought it to ~6 s.
+- Payment refund used to hang while Kafka was down because the HTTP handler awaited the publish; now fire-and-forget.
+
+### Verified
+- Cancel/refund/stock restore/partner release; cancel before assignment and while waiting; missed ORDER_CANCELLED replayed after a delivery-service restart; retry queue resumes after restart; give-up emits one NO_PARTNER_FOUND.
+- Kafka container frozen (warm producer): checkout, cancel and refund return in under a second, retries keep running, services recover without a restart.
+- Cold-producer cancel with the broker frozen: 61 s before the fix, 6.1 s after.
+- Edge cases: customer token on cancel 403; non-owner 400 with status unchanged; skipped or backwards transitions 409; invalid status 400; unknown order 400; stock unchanged on every rejected call; concurrent double cancel gives one success and one 409 with one refund and one event.
+
+### Known limitations
+- Kafka publishing is best-effort (no transactional outbox): a short outage only delays events, a long one drops them (observed on one order), and a send that fails after the 5 s bound is dropped. Events are also published inside the DB transaction, before commit.
+- Delivery events can be duplicated (kafkajs retries produced six NO_PARTNER_FOUND copies during a freeze) and stale (a late ORDER_CANCELLED lets a cancelled order retry and give up), so consumers must be idempotent.
+- NO_PARTNER_FOUND is only logged: orders stay CONFIRMED with no partner until auto-cancel is built.
+- Refund failure is logged only (no retry job); the refund call runs while the row lock is held.
+- 400 responses have an empty body (only 409s carry a message).
+- updateOrderStatus and assignDeliveryPartner do not take the row lock yet.
+- Docker-on-Windows shows periodic "bootstrap broker disconnected" warnings; no Kafka volume (topics reset on container recreate).
+
+### Next
+Lock updateOrderStatus and assignDeliveryPartner, then build auto-cancel on NO_PARTNER_FOUND in DeliveryEventListener (skip unless status is CONFIRMED, use the locked load and applyCancellation).
+
+### Interview line
+"I tested failure modes by freezing the Kafka container. That exposed a 60-second producer block and a double-cancel race, which I fixed with max.block.ms and a pessimistic row lock, and I documented the outbox as the production fix."
