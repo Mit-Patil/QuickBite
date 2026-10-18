@@ -351,16 +351,21 @@ public class OrderService {
         }
     }
 
+    @Transactional
     public OrderResponse cancelOrder(UUID orderId, UUID ownerId, CancelOrderRequest request){
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findWithLockById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
         
         if(!order.getRestaurant().getOwnerId().equals(ownerId)){
             throw new IllegalArgumentException("You do not own this order's restaurant");
-        }
-        
-        validateStatusTransition(order.getStatus(), OrderStatus.CANCELLED);
-        
+        }        
+        return toResponse(applyCancellation(order, request.getReason()));
+    }
+    
+     private Order applyCancellation(Order order, String reason) {
+        OrderStatus previousStatus = order.getStatus();
+        validateStatusTransition(previousStatus, OrderStatus.CANCELLED);
+
         List<OrderItem> orderItems = orderItemRepository.findByOrderId(order.getId());
         for (OrderItem orderItem : orderItems) {
             MenuItem menuItem = orderItem.getMenuItem();
@@ -369,10 +374,10 @@ public class OrderService {
                 menuItemRepository.save(menuItem);
             }
         }
-        
-        if(order.getStatus() == OrderStatus.CONFIRMED 
-                || order.getStatus() == OrderStatus.PREPARING
-                || order.getStatus() == OrderStatus.READY_FOR_PICKUP){
+
+        if (previousStatus == OrderStatus.CONFIRMED
+                || previousStatus == OrderStatus.PREPARING
+                || previousStatus == OrderStatus.READY_FOR_PICKUP) {
             try {
                 paymentServiceClient.post()
                         .uri("/api/payments/{orderId}/refund", order.getId())
@@ -380,29 +385,26 @@ public class OrderService {
                         .retrieve()
                         .toBodilessEntity();
             } catch (Exception e) {
-                    System.err.println("Refund failed for order " + order.getId() + ": " + e.getMessage());
+                log.error("Refund failed for order {}: {}", order.getId(), e.getMessage());
             }
         }
-        
-        OrderStatus previousStatus = order.getStatus();
-        
+
         order.setStatus(OrderStatus.CANCELLED);
-        order.setCancellationReason(request.getReason());
+        order.setCancellationReason(reason);
         order = orderRepository.save(order);
-        
+
         orderEventPublisher.publish(OrderEvent.builder()
-            .eventType("ORDER_CANCELLED")
-            .orderId(order.getId())
-            .customerId(order.getCustomerId())
-            .restaurantId(order.getRestaurant().getId())
-            .status(OrderStatus.CANCELLED.name())
-            .previousStatus(previousStatus.name())
-            .cancellationReason(request.getReason())
-            .occurredAt(java.time.Instant.now())
-            .build()
-        );
-        
-        return toResponse(order);
+                .eventType("ORDER_CANCELLED")
+                .orderId(order.getId())
+                .customerId(order.getCustomerId())
+                .restaurantId(order.getRestaurant().getId())
+                .status(OrderStatus.CANCELLED.name())
+                .previousStatus(previousStatus.name())
+                .cancellationReason(reason)
+                .occurredAt(java.time.Instant.now())
+                .build());
+
+        return order;
     }
     
     @Transactional

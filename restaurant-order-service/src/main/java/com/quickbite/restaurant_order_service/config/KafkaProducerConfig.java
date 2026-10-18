@@ -26,7 +26,8 @@ public class KafkaProducerConfig {
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        config.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false); // optional, see note below
+        config.put(JsonSerializer.ADD_TYPE_INFO_HEADERS, false);
+        config.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 5000);
         return new DefaultKafkaProducerFactory<>(
                 config,
                 null,
