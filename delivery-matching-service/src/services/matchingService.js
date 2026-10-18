@@ -7,17 +7,16 @@ const { publish } = require('../kafka/producer');
 
 const ASSIGNMENT_TTL_SECONDS = 24 * 60 * 60;
 const assignmentKey = (orderId) => `delivery:assignment:${orderId}`;
-
-function publishEvent(eventType, orderId, extra = {}) {
-  return publish(deliveryEventsTopic, orderId, {
-    eventType,
-    orderId,
-    occurredAt: new Date().toISOString(),
-    ...extra,
-  });
-}
+const cancelledKey = (orderId) => `delivery:cancelled:${orderId}`;
 
 async function matchOrder({ orderId, restaurantId }, { isRetry = false } = {}) {
+
+  if (await redis.exists(cancelledKey(orderId))) {
+    await retryQueue.remove(orderId);
+    console.log(`Order ${orderId} is cancelled, not matching`);
+    return;
+  }
+
   if (await redis.exists(assignmentKey(orderId))) {
     console.log(`Order ${orderId} already assigned, skipping`);
     return;
@@ -36,7 +35,7 @@ async function matchOrder({ orderId, restaurantId }, { isRetry = false } = {}) {
   for (const { partnerId, distanceKm } of candidates) {
     if (await locationService.claimPartner(partnerId, orderId)) {
       await redis.set(assignmentKey(orderId), partnerId, 'EX', ASSIGNMENT_TTL_SECONDS);
-      await retryQueue.remove(orderId); // drops the attempt counter too
+      await retryQueue.remove(orderId);
       await publishEvent('DELIVERY_ASSIGNED', orderId, { partnerId, distanceKm });
       console.log(`Order ${orderId} -> partner ${partnerId} (${distanceKm} km)${isRetry ? ' [retry]' : ''}`);
       return;
@@ -44,16 +43,20 @@ async function matchOrder({ orderId, restaurantId }, { isRetry = false } = {}) {
   }
 
   console.warn(`No partner available for order ${orderId}${isRetry ? ' (retry)' : ''}`);
-  if (!isRetry) await publishEvent('NO_PARTNER_AVAILABLE', orderId, { reason: 'NONE_NEARBY' });
 
   const attempts = await retryQueue.incrementAttempts(orderId);
-  if (attempts >= maxRetryAttempts) {
+  const givingUp = attempts >= maxRetryAttempts;
+  if (givingUp) {
     await retryQueue.remove(orderId);
-    await publishEvent('NO_PARTNER_FOUND', orderId, { attempts });
-    console.warn(`Giving up on order ${orderId} after ${attempts} attempts`);
-    return;
+  } else {
+    await retryQueue.schedule(orderId, restaurantId, retryDelaySeconds);
   }
-  await retryQueue.schedule(orderId, restaurantId, retryDelaySeconds);
+
+  if (!isRetry) publishEvent('NO_PARTNER_AVAILABLE', orderId, { reason: 'NONE_NEARBY' });
+  if (givingUp) {
+    publishEvent('NO_PARTNER_FOUND', orderId, { attempts });
+    console.warn(`Giving up on order ${orderId} after ${attempts} attempts`);
+  }
 }
 
 async function releaseForOrder(orderId, reason) {
@@ -73,8 +76,19 @@ async function handleStatusChange({ orderId, status }) {
   await releaseForOrder(orderId, 'delivered');
 }
 
+function publishEvent(eventType, orderId, extra = {}) {
+  publish(deliveryEventsTopic, orderId, {
+    eventType,
+    orderId,
+    occurredAt: new Date().toISOString(),
+    ...extra,
+  });
+}
+
 async function handleCancellation({ orderId }) {
+  await redis.set(cancelledKey(orderId), '1', 'EX', ASSIGNMENT_TTL_SECONDS);
   await retryQueue.remove(orderId);
+  console.log(`Order ${orderId} cancelled: removed from retry queue`);
   await releaseForOrder(orderId, 'cancelled');
 }
 
