@@ -27,5 +27,8 @@ public class DeliveryEventListener {
         if ("DELIVERY_ASSIGNED".equals(event.getEventType())) {
             orderService.assignDeliveryPartner(event.getOrderId(), event.getPartnerId());
         }
+        else if("NO_PARTNER_FOUND".equals(event.getEventType())){
+            orderService.cancelForNoPartner(event.getOrderId());
+        }
     }
 }

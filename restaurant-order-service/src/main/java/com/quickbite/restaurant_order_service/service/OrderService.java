@@ -300,8 +300,9 @@ public class OrderService {
                 .collect(Collectors.toList());
     }
     
+    @Transactional
     public OrderResponse updateOrderStatus(UUID orderId, UUID ownerId, UpdateOrderStatusRequest request){
-        Order order = orderRepository.findById(orderId)
+        Order order = orderRepository.findWithLockById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
         
         if(!order.getRestaurant().getOwnerId().equals(ownerId)){
@@ -409,7 +410,7 @@ public class OrderService {
     
     @Transactional
     public void assignDeliveryPartner(UUID orderId, UUID partnerId) {
-        Order order = orderRepository.findById(orderId).orElse(null);
+        Order order = orderRepository.findWithLockById(orderId).orElse(null);
         if (order == null) {
             log.warn("DELIVERY_ASSIGNED for unknown order {}, ignoring", orderId);
             return;
@@ -425,6 +426,21 @@ public class OrderService {
         order.setDeliveryPartnerId(partnerId);
         orderRepository.save(order);
         log.info("Assigned partner {} to order {}", partnerId, orderId);
+    }
+    
+    @Transactional
+    public void cancelForNoPartner(UUID orderId) {
+        Order order = orderRepository.findWithLockById(orderId).orElse(null);
+        if (order == null) {
+            log.warn("NO_PARTNER_FOUND for unknown order {}, ignoring", orderId);
+            return;
+        }
+        if (order.getStatus() != Order.OrderStatus.CONFIRMED) {
+            log.info("Order {} is {}, not auto-cancelling", orderId, order.getStatus());
+            return;
+        }
+        applyCancellation(order, "No delivery partner available");
+        log.info("Order {} auto-cancelled: no delivery partner found", orderId);
     }
     
     private OrderResponse toResponse(Order order) {
