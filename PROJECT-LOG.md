@@ -1023,7 +1023,6 @@ Make the delivery flow safe to demo: orders with no nearby partner retry then gi
 - Delivery events can be duplicated (kafkajs retries produced six NO_PARTNER_FOUND copies during a freeze) and stale (a late ORDER_CANCELLED lets a cancelled order retry and give up), so consumers must be idempotent.
 - NO_PARTNER_FOUND is only logged: orders stay CONFIRMED with no partner until auto-cancel is built.
 - Refund failure is logged only (no retry job); the refund call runs while the row lock is held.
-- 400 responses have an empty body (only 409s carry a message).
 - updateOrderStatus and assignDeliveryPartner do not take the row lock yet.
 - Docker-on-Windows shows periodic "bootstrap broker disconnected" warnings; no Kafka volume (topics reset on container recreate).
 
@@ -1032,3 +1031,40 @@ Lock updateOrderStatus and assignDeliveryPartner, then build auto-cancel on NO_P
 
 ### Interview line
 "I tested failure modes by freezing the Kafka container. That exposed a 60-second producer block and a double-cancel race, which I fixed with max.block.ms and a pessimistic row lock, and I documented the outbox as the production fix."
+
+## Session 47 — 18–19 Oct 2026: Auto-cancel when no partner is found, extra row locks, error-response checks
+
+### Goal
+Finish the delivery flow end to end: when the delivery service gives up (NO_PARTNER_FOUND), the order is cancelled, refunded and restocked automatically, safely against duplicate, late and concurrent events.
+
+### What was built / changed
+- restaurant-order-service: new OrderService.cancelForNoPartner(orderId): loads the order with a row lock, ignores unknown orders, skips unless the status is CONFIRMED, then reuses applyCancellation (refund, stock restore, ORDER_CANCELLED event) with the reason "No delivery partner available".
+- DeliveryEventListener routes NO_PARTNER_FOUND to it; DELIVERY_ASSIGNED is unchanged.
+- updateOrderStatus is now @Transactional and, like assignDeliveryPartner, loads the order with findWithLockById, so a status change cannot overwrite a concurrent cancel.
+- GlobalExceptionHandler: malformed or unreadable request bodies return 400 with a fixed message (no parser internals leaked).
+
+### Verified
+- No partner online: after the 6th attempt (~95 s) the order is CANCELLED with the reason shown in the UI, one refund, stock unchanged.
+- Partner appears before the give-up: order stays CONFIRMED with the partner assigned, no cancel.
+- Duplicate NO_PARTNER_FOUND replayed from Kafka UI: skipped ("is CANCELLED, not auto-cancelling"), no second refund.
+- Owner moved the order to PREPARING before the give-up: not auto-cancelled.
+- Owner cancel at ~96 s (after 5 of 6 attempts): owner won, no NO_PARTNER_FOUND, one ORDER_CANCELLED event.
+- Regression: partner assignment and the full status flow to DELIVERED with the new locks; partner released on delivery.
+- Error responses: wrong owner, blank reason, invalid status and unknown order each return their message; malformed JSON returns the fixed message.
+
+### Correction to Session 46
+The Session 46 log said 400 responses have an empty body. That was my PowerShell test helper hiding JSON error bodies; a raw curl check showed {"error": ...}. The line is removed.
+
+### Known limitations
+- An order the owner already moved to PREPARING is left alone when no partner is found (no cancel, no alert); it needs a manual or alert path later.
+- NO_PARTNER_FOUND can be duplicated or delayed (kafkajs producer is not idempotent); the CONFIRMED guard makes the consumer safe.
+- A true same-millisecond collision between an owner cancel and the auto-cancel was not directly observed; covered by the shared row lock (Session 46 double-cancel test) plus the CONFIRMED guard.
+- "Order not found" returns 400 (IllegalArgumentException); a proper 404 needs a ResourceNotFoundException.
+- Error shapes differ: {"error": ...} for most, a field map for validation, plain text for 409.
+- Kafka publishing is still best-effort with no transactional outbox, and refund failure is only logged.
+
+### Next
+Delivery-partner frontend (online toggle, location pings, assigned order), partner-driven pickup/delivered status, then live tracking.
+
+### Interview line
+"I made the auto-cancel safe against duplicate and late events by locking the order row and only cancelling orders still in CONFIRMED, and I checked it by replaying events and racing it against manual cancels."
