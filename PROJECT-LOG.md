@@ -1068,3 +1068,48 @@ Delivery-partner frontend (online toggle, location pings, assigned order), partn
 
 ### Interview line
 "I made the auto-cancel safe against duplicate and late events by locking the order row and only cancelling orders still in CONFIRMED, and I checked it by replaying events and racing it against manual cancels."
+
+
+## Session 48 — 19–20 Oct 2026: Restaurant accept/reject, matching on acceptance, response timeout
+
+### Goal
+Make the order lifecycle realistic: the restaurant must accept or reject a paid order within 120 s, delivery matching starts only after acceptance, and preparing can start only once a delivery partner is assigned.
+
+### What was built / changed
+- restaurant-order-service: new ACCEPTED status (enum, transition map CONFIRMED -> ACCEPTED -> PREPARING). The orders.status CHECK constraint was widened to allow ACCEPTED: applied by hand to the dev database and recorded in the schema file (there is no migration tool).
+- acceptOrder (row lock, ownership check, transition check, publishes ORDER_ACCEPTED) and rejectOrder (only from CONFIRMED, reason prefixed 'Rejected by restaurant: ', reuses applyCancellation for refund and stock restore).
+- Refund condition now covers CONFIRMED, ACCEPTED and PREPARING (the unreachable READY_FOR_PICKUP was dropped).
+- Closed a loophole: the generic status endpoint could cancel an order without refund, stock restore or ORDER_CANCELLED event; it can no longer set ACCEPTED or CANCELLED.
+- PREPARING is blocked (409) until a delivery partner is assigned; cancelForNoPartner now guards on ACCEPTED.
+- Restaurant response timeout: OrderTimeoutJob (@Scheduled every 10 s) cancels CONFIRMED orders older than order.accept-timeout-seconds (ORDER_ACCEPT_TIME, default 120) through cancelUnansweredOrder, which re-checks status under the row lock; reason 'Restaurant did not respond in time'.
+- delivery-matching-service: the event handler now reacts to ORDER_ACCEPTED instead of ORDER_CONFIRMED.
+- Infra: the Kafka external advertised listener in docker-compose.yml changed from localhost to 127.0.0.1 (suspected cause of the periodic ECONNRESET: localhost resolves to IPv6 first on Windows).
+
+### Local setup note
+The Node services (payment, delivery) need KAFKA_BROKER=127.0.0.1:9094 in their local .env files. The .env files are not committed, so this must be set by hand on a new machine.
+
+### Verified
+- Reject: CANCELLED with the reason and a refund, and matching never starts.
+- Accept starts matching: partner assigned about 1.5 s later; no matching activity while the order waits for the restaurant.
+- PREPARING blocked without a partner; allowed once one is assigned.
+- No partner after accept: auto-cancel about 97 s later from ACCEPTED, one refund.
+- Ignored order: auto-cancelled 126-130 s after placement with a refund; accepted-in-time orders are untouched; a late accept gets 409 (CANCELLED to ACCEPTED).
+- Cancel from ACCEPTED refunds; double accept 409; wrong owner 400; generic status endpoint rejects ACCEPTED and CANCELLED.
+- Full happy path through the API to DELIVERED, partner released.
+- The first sweep cleaned up stuck CONFIRMED test orders from earlier sessions.
+
+### Known limitations
+- The owner UI has no Accept or Reject buttons yet, so orders placed through the website are auto-cancelled after 120 s until the frontend is updated.
+- ACCEPTED orders have no timeout: if the restaurant accepts and never starts preparing, the partner stays reserved (up to the 2 h busy TTL) and the customer waits.
+- The 120 s window runs from placement, not from payment confirmation.
+- Assignment is still direct (no rider accept or decline), and the owner still moves orders to OUT_FOR_DELIVERY and DELIVERED through the API.
+- The sweep polls every 10 s: safe with several instances (lock plus status guard) but not tuned (no SKIP LOCKED or index).
+- Refunds are 100% for owner and system cancels; the customer cancel with a partial-refund policy is deferred (online payments only; a cancelled COD payment is still marked REFUNDED).
+- Kafka publishing is best-effort. The 127.0.0.1 change is applied but not yet confirmed over a long idle run, and the Kafka container has no volume (recreating it resets topics).
+- Schema changes are applied by hand, so the ACCEPTED constraint must be applied to any existing database.
+
+### Next
+Confirm the Kafka change with a 5-minute idle run, owner UI Accept and Reject buttons with status labels, then Session 49: sequential rider offers (about 40 s each, up to 4 riders) and partner-driven pickup and delivered.
+
+### Interview line
+"I modelled the order lifecycle as a state machine with actors and timeouts: the restaurant has 120 seconds to accept, matching starts only after acceptance, and every automatic cancellation takes a row lock and re-checks state, so duplicate, late and concurrent events are harmless."
