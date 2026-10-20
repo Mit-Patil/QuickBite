@@ -5,7 +5,7 @@ const matchingService = require('../services/matchingService');
 const consumer = kafka.consumer({ groupId: consumerGroupId });
 
 const handlers = {
-    ORDER_CONFIRMED: matchingService.matchOrder,
+    ORDER_ACCEPTED: matchingService.matchOrder,
     STATUS_CHANGED: matchingService.handleStatusChange,
     ORDER_CANCELLED: matchingService.handleCancellation,
 };
