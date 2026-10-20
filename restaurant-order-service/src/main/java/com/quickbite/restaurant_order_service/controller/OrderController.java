@@ -54,6 +54,18 @@ public class OrderController {
         return ResponseEntity.ok(orderService.cancelOrder(id, ownerId, request));
     }
     
+    @PatchMapping("/{id}/accept")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<OrderResponse> acceptOrder(@PathVariable UUID id){
+        return ResponseEntity.ok(orderService.acceptOrder(id, getCurrentUserId()));
+    }
+    
+    @PatchMapping("/{id}/reject")
+    @PreAuthorize("hasRole('RESTAURANT_OWNER')")
+    public ResponseEntity<OrderResponse> rejectOrder(@PathVariable UUID id, @Valid @RequestBody CancelOrderRequest request){
+        return ResponseEntity.ok(orderService.rejectOrder(id, getCurrentUserId(), request));
+    }
+
     private UUID getCurrentUserId() {
         return (UUID) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }

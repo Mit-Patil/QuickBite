@@ -43,7 +43,7 @@ public class OrderService {
     
     @Value("${internal.service-secret}")
     private String internalServiceSecret;
-
+    
     @Transactional
     public OrderResponse placeOrder(UUID customerId,String authToken, PlaceOrderRequest request) {
         Cart cart = cartRepository.findByCustomerId(customerId)
@@ -314,10 +314,18 @@ public class OrderService {
         try {
             newStatus = OrderStatus.valueOf(request.getStatus().toUpperCase());
         } catch (IllegalArgumentException e) {
-             throw new IllegalArgumentException("Invalid status: " + request.getStatus());
+            throw new IllegalArgumentException("Invalid status: " + request.getStatus());
+        }
+
+        if (newStatus == OrderStatus.ACCEPTED || newStatus == OrderStatus.CANCELLED) {
+            throw new IllegalArgumentException("Use the accept or cancel endpoint for this change");
         }
         
         validateStatusTransition(order.getStatus(), newStatus);
+        
+        if (newStatus == OrderStatus.PREPARING && order.getDeliveryPartnerId() == null) {
+            throw new IllegalStateException("Waiting for a delivery partner to be assigned");
+        }
         
         OrderStatus previousStatus = order.getStatus();
         
@@ -340,7 +348,8 @@ public class OrderService {
     
     private void validateStatusTransition(OrderStatus current, OrderStatus next){
         Map<OrderStatus, List<OrderStatus>> allowedTransitions = Map.of(
-            OrderStatus.CONFIRMED, List.of(OrderStatus.PREPARING, OrderStatus.CANCELLED),
+            OrderStatus.CONFIRMED, List.of(OrderStatus.ACCEPTED, OrderStatus.CANCELLED),
+            OrderStatus.ACCEPTED, List.of(OrderStatus.PREPARING, OrderStatus.CANCELLED),
             OrderStatus.PREPARING, List.of(OrderStatus.READY_FOR_PICKUP, OrderStatus.CANCELLED),
             OrderStatus.READY_FOR_PICKUP, List.of(OrderStatus.OUT_FOR_DELIVERY),
             OrderStatus.OUT_FOR_DELIVERY, List.of(OrderStatus.DELIVERED)
@@ -377,8 +386,8 @@ public class OrderService {
         }
 
         if (previousStatus == OrderStatus.CONFIRMED
-                || previousStatus == OrderStatus.PREPARING
-                || previousStatus == OrderStatus.READY_FOR_PICKUP) {
+                || previousStatus == OrderStatus.ACCEPTED
+                || previousStatus == OrderStatus.PREPARING) {
             try {
                 paymentServiceClient.post()
                         .uri("/api/payments/{orderId}/refund", order.getId())
@@ -407,6 +416,64 @@ public class OrderService {
 
         return order;
     }
+     
+    @Transactional
+    public void cancelUnansweredOrder(UUID orderId) {
+        Order order = orderRepository.findWithLockById(orderId).orElse(null);
+        if (order == null) {
+            log.warn("Unknown order {} in timeout sweep, ignoring", orderId);
+            return;
+        }
+        if (order.getStatus() != OrderStatus.CONFIRMED) {
+            log.info("Order {} is {}, not timing out", orderId, order.getStatus());
+            return;
+        }
+        applyCancellation(order, "Restaurant did not respond in time");
+        log.info("Order {} auto-cancelled: restaurant did not respond", orderId);
+    }
+     
+     @Transactional
+     public OrderResponse acceptOrder(UUID orderId, UUID ownerId){
+         Order order = orderRepository.findWithLockById(orderId)
+                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+         
+         if(!order.getRestaurant().getOwnerId().equals(ownerId)){
+            throw new IllegalArgumentException("You do not own this order's restaurant");
+         }
+         
+         validateStatusTransition(order.getStatus(), OrderStatus.ACCEPTED);
+         
+         OrderStatus previousStatus = order.getStatus();
+         order.setStatus(OrderStatus.ACCEPTED);
+         
+         order = orderRepository.save(order);
+         
+         orderEventPublisher.publish(OrderEvent.builder()
+                 .eventType("ORDER_ACCEPTED")
+                 .orderId(order.getId())
+                 .customerId(order.getCustomerId())
+                 .restaurantId(order.getRestaurant().getId())
+                 .status(OrderStatus.ACCEPTED.name())
+                 .previousStatus(previousStatus.name())
+                 .occurredAt(java.time.Instant.now())
+                 .build());
+         return toResponse(order);
+     }
+     
+     @Transactional
+     public OrderResponse rejectOrder(UUID orderID, UUID ownerId, CancelOrderRequest request){
+         Order order = orderRepository.findWithLockById(orderID)
+                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+         
+         if(!order.getRestaurant().getOwnerId().equals(ownerId)){
+             throw new IllegalArgumentException("You do not own this order's restaurant");
+         }
+         
+         if(order.getStatus() != OrderStatus.CONFIRMED){
+             throw new IllegalStateException("Only an order waiting for the restaurant can be rejected");
+         }
+         return toResponse(applyCancellation(order, "Rejected by restaurant: " + request.getReason()));
+     }
     
     @Transactional
     public void assignDeliveryPartner(UUID orderId, UUID partnerId) {
@@ -435,7 +502,7 @@ public class OrderService {
             log.warn("NO_PARTNER_FOUND for unknown order {}, ignoring", orderId);
             return;
         }
-        if (order.getStatus() != Order.OrderStatus.CONFIRMED) {
+        if (order.getStatus() != Order.OrderStatus.ACCEPTED) {
             log.info("Order {} is {}, not auto-cancelling", orderId, order.getStatus());
             return;
         }

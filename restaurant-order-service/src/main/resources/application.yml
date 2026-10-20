@@ -47,6 +47,7 @@ jwt:
 order:
   tax-rate: 0.05
   delivery-fee: 30.00
+  accept-timeout-seconds: ${ORDER_ACCEPT_TIME:120}
 
 logging:
   level:

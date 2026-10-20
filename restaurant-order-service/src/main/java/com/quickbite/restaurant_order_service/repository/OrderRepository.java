@@ -3,6 +3,7 @@ package com.quickbite.restaurant_order_service.repository;
 import com.quickbite.restaurant_order_service.entity.Order;
 import com.quickbite.restaurant_order_service.entity.Order.OrderStatus;
 import jakarta.persistence.LockModeType;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -15,4 +16,5 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findByRestaurantIdOrderByPlacedAtDesc(UUID restaurantId);
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Order> findWithLockById(UUID id);
+    List<Order> findByStatusAndPlacedAtBefore(OrderStatus status, LocalDateTime cutoff);
 }
