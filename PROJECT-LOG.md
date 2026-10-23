@@ -1113,3 +1113,42 @@ Confirm the Kafka change with a 5-minute idle run, owner UI Accept and Reject bu
 
 ### Interview line
 "I modelled the order lifecycle as a state machine with actors and timeouts: the restaurant has 120 seconds to accept, matching starts only after acceptance, and every automatic cancellation takes a row lock and re-checks state, so duplicate, late and concurrent events are harmless."
+
+## Session 49 — 21–23 Oct 2026: Accept/reject UI, shared order status helper, Kafka verification
+
+### Goal
+Make the accept/reject lifecycle usable from the website, and confirm the Kafka connection fix from Session 48 really holds.
+
+### What was built / changed
+- quickbite-frontend: new src/utils/orderStatus.js is the single source for status labels (owner and customer wording), badge tones and the actions an owner may take next. StatusBadge reads it (new role prop). orderService gains acceptOrder, rejectOrder and runOwnerAction (one mapping from action key to API call).
+- Owner orders page: Accept and Reject on new orders, Start preparing disabled until a delivery partner is assigned (with a 'Finding a delivery partner...' line), one handleAction replaces two handlers, refreshes every 10 s and resyncs after an error.
+- Customer order page: new Accepted step, waiting and accepted headlines, refreshes every 10 s; the list badges pick up the new customer labels automatically.
+- Button now forwards a disabled prop (it was ignored before; the default keeps every other caller unchanged).
+- payment-service: the MongoDB connection retries 5 times (5 s server selection timeout, 3 s between attempts) before exiting, instead of crashing on the first failure.
+- Kafka: verification only, no code change.
+
+### Bugs found by testing, and fixes
+- After cancel or reject, the owner card briefly showed the old buttons. window.prompt freezes the page, so the queued 10 s refresh fired as the action started, and a stale list response overwrote the new card. Fixed with a latest-request-wins counter: stale refresh results are ignored and a finished action invalidates in-flight refreshes.
+- Start preparing was clickable with no partner assigned because Button ignored disabled (the server still rejected it with a clear 409). Fixed in Button.
+- Correction to Session 48: the Kafka container does have a volume (kafka-data). A force-recreate kept 3 of 4 topics; payment-events was missing, likely an unclean stop, and it is auto-created again on the next payment event.
+
+### Verified
+- Kafka (127.0.0.1 listener): broker reachable; all three consumer groups connected with lag 0 after a real order flow; two idle runs of 10+ minutes with no ECONNRESET, Connection error or timed out in either Node service (previously every ~30 s); payment-events topic auto-created on its first publish.
+- Mongo retry: with the container stopped, 3 failed attempts, then it connected once the container started.
+- Browser flows (owner and customer): a new order shows Accept and Reject within 10 s; accept shows the partner being found, then assigned, and enables Start preparing; the full flow to Delivered with the progress bar following; reject and cancel reasons appear on both sides; an ignored order is cancelled after 2 minutes; no partner leads to a cancel after about 90 s; clicking a stale button shows a clear 409 message and the card resyncs; Start preparing is disabled until a partner is assigned.
+
+### Known limitations
+- Polling (10 s) instead of push: updates can lag by up to 10 s, and every refresh downloads the full order list. Plan: a notification service that consumes the Kafka events and pushes a WebSocket nudge, the page refetches from REST, and a slow poll stays as a safety net.
+- Events are published before the database commit, so a refetch triggered by a push could briefly see old state (publish after commit planned with the notification service).
+- The 2-minute accept text in the UI is hardcoded (the backend value is ORDER_ACCEPT_TIME).
+- Reject and cancel reasons use window.prompt; a reusable dialog is a later task.
+- The owner still marks out for delivery and delivered until the partner app exists.
+- ACCEPTED orders have no prepare timeout: the partner can stay reserved up to 2 h if the restaurant never starts.
+- The Kafka container uses Docker's default 10 s stop grace period; stop_grace_period is suggested.
+- Earlier limitations from Sessions 46-48 still apply (best-effort Kafka without an outbox, direct partner assignment, refund policy deferred).
+
+### Next
+Session 50: rider offers in delivery-matching-service (sequential offers of about 40 s each, up to 4 riders, total wait under about 300 s), tested through the API. Then the partner UI with partner-driven pickup and delivered, then the notification service.
+
+### Interview line
+"When the UI showed stale buttons after a cancel, I traced it to a polling response racing the action, because window.prompt queues the refresh tick, and fixed it with a latest-request-wins guard rather than just refreshing more often."
