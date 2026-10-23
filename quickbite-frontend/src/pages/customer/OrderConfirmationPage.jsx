@@ -10,11 +10,14 @@ import styles from './OrderConfirmationPage.module.css';
 
 const STEPS = [
   { status: 'CONFIRMED', label: 'Confirmed' },
+  { status: 'ACCEPTED', label: 'Accepted' },
   { status: 'PREPARING', label: 'Preparing' },
   { status: 'READY_FOR_PICKUP', label: 'Ready' },
   { status: 'OUT_FOR_DELIVERY', label: 'On the way' },
   { status: 'DELIVERED', label: 'Delivered' },
 ];
+
+const POLL_MS = 10000;
 
 function getHeadline(status, justPlaced) {
   if (status === 'CANCELLED') {
@@ -25,6 +28,12 @@ function getHeadline(status, justPlaced) {
   }
   if (status === 'DELIVERED') {
     return { icon: '🎉', tone: 'success', title: 'Delivered', text: 'Enjoy your meal!' };
+  }
+  if (status === 'CONFIRMED') {
+    return { icon: '⏳', tone: 'success', title: 'Waiting for the restaurant', text: 'The restaurant has a couple of minutes to accept your order.' };
+  }
+  if (status === 'ACCEPTED') {
+    return { icon: '👨‍🍳', tone: 'success', title: 'Restaurant accepted', text: 'We are finding a delivery partner for you.' };
   }
   if (justPlaced) {
     return { icon: '✓', tone: 'success', title: 'Order placed!', text: 'The restaurant has received your order.' };
@@ -44,6 +53,10 @@ function OrderConfirmationPage() {
 
   useEffect(() => {
     loadOrder();
+    const timer = setInterval(() => {
+      if (!document.hidden) loadOrders();
+    }, POLL_MS);
+    return () => clearInterval(timer);
   }, [orderId]);
 
   async function loadOrder() {

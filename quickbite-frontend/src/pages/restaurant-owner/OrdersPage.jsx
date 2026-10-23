@@ -1,20 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { getOrdersForRestaurant, updateOrderStatus, cancelOrder } from '../../api/orderService';
+import { getOrdersForRestaurant, runOwnerAction } from '../../api/orderService';
 import { formatPrice, formatDateTime, shortOrderId } from '../../utils/format';
+import { ownerActions } from '../../utils/orderStatus';
 import StatusBadge from '../../components/StatusBadge';
 import Button from '../../components/Button';
 import ErrorMessage from '../../components/ErrorMessage';
 import styles from './OrdersPage.module.css';
 
-const NEXT_STATUSES = {
-  CONFIRMED: ['PREPARING'],
-  PREPARING: ['READY_FOR_PICKUP'],
-  READY_FOR_PICKUP: ['OUT_FOR_DELIVERY'],
-  OUT_FOR_DELIVERY: ['DELIVERED'],
-};
-
-const CANCELLABLE = ['CONFIRMED', 'PREPARING'];
+const POLL_MS = 10000;
 
 function OrdersPage() {
   const { id } = useParams();
@@ -23,46 +17,47 @@ function OrdersPage() {
   const [error, setError] = useState('');
   const [actioningId, setActioningId] = useState(null);
 
+  const latestLoad = useRef(0);
+
+
   useEffect(() => {
     loadOrders();
+    const timer = setInterval(() => {
+      if (!document.hidden) loadOrders();
+    }, POLL_MS);    
+    return () => clearInterval(timer);
   }, [id]);
 
   async function loadOrders() {
+    const thisLoad = ++latestLoad.current;
     try {
       const response = await getOrdersForRestaurant(id);
+      if (thisLoad !== latestLoad.current) return;
       const sorted = [...response.data].sort((a, b) => new Date(b.placedAt) - new Date(a.placedAt));
       setOrders(sorted);
     } catch (err) {
-      setError(err.message);
+      if(thisLoad == latestLoad.current) setError(err.message);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleStatusChange(orderId, status) {
-    setError('');
-    setActioningId(orderId);
-    try {
-      const response = await updateOrderStatus(orderId, status);
-      setOrders(orders.map((o) => (o.id === orderId ? response.data : o)));
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setActioningId(null);
+  async function handleAction(order, action) {
+    let reason;
+    if (action.prompt) {
+      reason = window.prompt(action.prompt)?.trim();
+      if (!reason) return;
     }
-  }
-
-  async function handleCancel(orderId) {
-    const reason = window.prompt('Reason for cancellation:');
-    if (!reason) return;
 
     setError('');
-    setActioningId(orderId);
+    setActioningId(order.id);
     try {
-      const response = await cancelOrder(orderId, reason);
-      setOrders(orders.map((o) => (o.id === orderId ? response.data : o)));
+      const response = await runOwnerAction(action.key, order.id, reason);
+      latestLoad.current += 1;
+      setOrders((prev) => prev.map((o) => (o.id === order.id ? response.data : o)));
     } catch (err) {
       setError(err.message);
+      loadOrders();
     } finally {
       setActioningId(null);
     }
@@ -88,7 +83,7 @@ function OrdersPage() {
         <ul className={styles.list}>
           {orders.map((order) => {
             const busy = actioningId === order.id;
-            const nextStatuses = NEXT_STATUSES[order.status] || [];
+            const actions = ownerActions(order);
 
             return (
               <li key={order.id} className={styles.card}>
@@ -97,7 +92,7 @@ function OrdersPage() {
                     <p className={styles.ref}>{shortOrderId(order.id)}</p>
                     <p className={styles.date}>{formatDateTime(order.placedAt)}</p>
                   </div>
-                  <StatusBadge status={order.status} />
+                  <StatusBadge status={order.status} role="owner" />
                 </div>
 
                 <ul className={styles.itemList}>
@@ -111,34 +106,45 @@ function OrdersPage() {
 
                 <p className={styles.total}>Total: ₹{formatPrice(order.totalAmount)}</p>
 
+                {order.status === 'CONFIRMED' && (
+                  <p className={styles.muted}>Accept within 2 minutes or the order is cancelled.</p>
+                )}
+                {order.status === 'ACCEPTED' && (
+                  <p className={styles.muted}>
+                    {order.deliveryPartnerId ? 'Delivery partner assigned' : 'Finding a delivery partner…'}
+                  </p>
+                )}
+
                 {order.cancellationReason && (
                   <p className={styles.cancelReason}>Cancelled: {order.cancellationReason}</p>
                 )}
 
-                {(nextStatuses.length > 0 || CANCELLABLE.includes(order.status)) && (
+                {actions.length > 0 && (
                   <div className={styles.actions}>
-                    {nextStatuses.map((nextStatus) => (
-                      <Button
-                        key={nextStatus}
-                        type="button"
-                        loading={busy}
-                        loadingText="Updating..."
-                        disabled={busy}
-                        onClick={() => handleStatusChange(order.id, nextStatus)}
-                        className={styles.actionButton}
-                      >
-                        Mark as {nextStatus.replace(/_/g, ' ')}
-                      </Button>
-                    ))}
-                    {CANCELLABLE.includes(order.status) && (
-                      <button
-                        type="button"
-                        className={styles.cancelButton}
-                        onClick={() => handleCancel(order.id)}
-                        disabled={busy}
-                      >
-                        Cancel Order
-                      </button>
+                    {actions.map((action) =>
+                      action.danger ? (
+                        <button
+                          key={action.key}
+                          type="button"
+                          className={styles.cancelButton}
+                          onClick={() => handleAction(order, action)}
+                          disabled={busy}
+                        >
+                          {action.label}
+                        </button>
+                      ) : (
+                        <Button
+                          key={action.key}
+                          type="button"
+                          loading={busy}
+                          loadingText="Updating..."
+                          disabled={busy || action.disabled}
+                          onClick={() => handleAction(order, action)}
+                          className={styles.actionButton}
+                        >
+                          {action.label}
+                        </Button>
+                      )
                     )}
                   </div>
                 )}

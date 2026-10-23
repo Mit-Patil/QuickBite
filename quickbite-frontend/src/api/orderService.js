@@ -23,3 +23,22 @@ export function updateOrderStatus(orderId, status) {
 export function cancelOrder(orderId, reason) {
   return orderClient.patch(`/api/orders/${orderId}/cancel`, { reason });
 }
+
+export const acceptOrder = (orderId) =>
+  orderClient.patch(`/api/orders/${orderId}/accept`);
+
+export const rejectOrder = (orderId, reason) =>
+  orderClient.patch(`/api/orders/${orderId}/reject`, { reason });
+
+export function runOwnerAction(key, orderId, reason) {
+  switch (key) {
+    case 'accept':  return acceptOrder(orderId);
+    case 'reject':  return rejectOrder(orderId, reason);
+    case 'cancel':  return cancelOrder(orderId, reason);
+    case 'prepare': return updateOrderStatus(orderId, 'PREPARING');
+    case 'ready':   return updateOrderStatus(orderId, 'READY_FOR_PICKUP');
+    case 'pickup':  return updateOrderStatus(orderId, 'OUT_FOR_DELIVERY');
+    case 'deliver': return updateOrderStatus(orderId, 'DELIVERED');
+    default:        throw new Error(`Unknown action: ${key}`);
+  }
+}
