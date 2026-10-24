@@ -31,3 +31,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# local test helper
+/ping-rider.ps1
