@@ -1152,3 +1152,48 @@ Session 50: rider offers in delivery-matching-service (sequential offers of abou
 
 ### Interview line
 "When the UI showed stale buttons after a cancel, I traced it to a polling response racing the action, because window.prompt queues the refresh tick, and fixed it with a latest-request-wins guard rather than just refreshing more often."
+
+## Session 50 — 24 Oct 2026: Sequential rider offers (accept, decline, timeout) in delivery-matching-service
+
+### Goal
+Replace direct partner assignment with rider offers: the nearest rider gets an offer for 40 s, then the next one, up to 4 riders, with a total wait well under 300 s, tested through the API before any UI.
+
+### What was built / changed
+- offerStore.js (new): one Redis hash per offer (partnerId, distanceKm, restaurantId, expiresAt), an expiry sorted set, and a per-order set of riders already offered. createOffer uses HSETNX so an order can only ever have one offer. takeOffer is a Lua script that reads and deletes the offer in one step, so accept, decline, timeout and cancel race safely and exactly one of them wins.
+- matchingService: matchOrder now creates an offer instead of assigning. It skips cancelled, assigned and in-flight orders, filters out riders already offered, gives up after 4 offers, and reserves the rider with the existing claimPartner. New acceptOffer (sets the assignment and publishes DELIVERY_ASSIGNED), declineOffer, expireOffer and getCurrentOffer. A cancel also removes the live offer and releases the reserved rider. The give-up and retry logic was extracted into helpers so the no-candidate path and the 4-offers path share one implementation.
+- offerWorker.js (new): every 2 s it claims due offers and expires them, started next to the retry worker in app.js (same pattern as the retry queue, so offers survive in Redis instead of living in setTimeout).
+- Rider API: GET /api/delivery/offers/current (offer with secondsLeft), POST /offers/:orderId/accept, POST /offers/:orderId/decline (offerController, partnerRoutes).
+- Small additions: locationService.getBusyOrder, env.js (offerTimeoutSeconds 40, maxOffers 4, offerTickMs 2000), ConflictError (409) in AppError.js.
+- DELIVERY_ASSIGNED is now published only when a rider accepts; the order service needed no change.
+- ping-rider.ps1: one reusable script that logs in as a rider and sends a location every 10 s, used to simulate four riders.
+
+### Bugs found by testing and fixes
+- A stale accept returned 500 Something went wrong: ConflictError did not exist in AppError.js, so the service threw ConflictError is not a constructor. Added the class (409) and its export; a stale accept now returns 409 with a clear message.
+
+### Verified
+- The nearest rider is offered first and offers follow distance order (0.48, 0.88, 2.04, 3.51 km).
+- Accept: DELIVERY_ASSIGNED reaches the order service, deliveryPartnerId is stored, PREPARING is allowed, the full flow to DELIVERED releases the rider (checked with rider 1 and with rider 3 after two declines).
+- A stale accept and an accept by the wrong rider both return 409.
+- Decline releases the rider and offers the order to the next rider; the decliner is never offered the same order again.
+- Timeout (40 s): the worker expires the offer, releases the rider and offers the next one; timed-out riders are not re-offered.
+- Four riders ignoring an order: 4 offers, NO_PARTNER_FOUND, then the order auto-cancels with No delivery partner available, about 162 s after ORDER_ACCEPTED (order-service log timestamps), under the 300 s target.
+- Cancelling during a live offer removes the offer and the rider reservation, with no further retries.
+- A duplicate ORDER_ACCEPTED produced through Kafka UI while an offer was live was skipped: no second offer, and the offer window stayed one 40 s period.
+- Two orders were offered at the same time and no rider had overlapping busy windows.
+
+### Known limitations
+- Accepting at the same instant the offer times out, and two riders accepting at once, were not tested; they rely on the single atomic Lua delete.
+- Expiry is enforced by the worker tick, so an accept up to about 2 s after 40 s can still succeed.
+- If expireOffer fails after taking the offer, that order is not re-offered automatically.
+- A restaurant-service failure on the first ORDER_ACCEPTED is logged but not retried (existing gap).
+- A service restart during a live offer was not tested.
+- Riders must poll GET /offers/current; there is no push and no DELIVERY_OFFERED event yet.
+- Kafka publishing is still best-effort, so a lost DELIVERY_ASSIGNED would leave the order ACCEPTED while the rider is reserved.
+- The refund on the no-partner auto-cancel was not re-checked this session (verified in Session 48).
+- ACCEPTED orders still have no prepare timeout, and the owner still marks out for delivery and delivered.
+
+### Next
+Session 51: partner UI (go online, see the offer with a countdown, accept or decline), then partner-driven pickup and delivered, then the notification and live-tracking service.
+
+### Interview line
+"I replaced direct rider assignment with sequential 40-second offers: each offer is a Redis hash with an expiry queue, and one Lua script reads and deletes it atomically so accept, decline, timeout and cancel can race safely with exactly one winner. I tested it with four simulated riders and measured about 162 seconds before giving up, against a 300-second target."
