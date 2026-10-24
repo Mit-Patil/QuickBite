@@ -21,6 +21,9 @@ module.exports = {
   retryDelaySeconds: 15,
   retryTickMs: 5000,
   maxRetryAttempts: 6,
+  offerTimeoutSeconds: 40,
+  maxOffers: 4,
+  offerTickMs: 2000,
 
   heartbeatTtlSeconds: 30,
   searchRadiusKm: 5,

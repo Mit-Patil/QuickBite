@@ -1,16 +1,46 @@
 const redis = require('../config/redis');
-const { searchRadiusKm, deliveryEventsTopic, retryDelaySeconds, maxRetryAttempts } = require('../config/env');
+const {
+  searchRadiusKm, deliveryEventsTopic, retryDelaySeconds, maxRetryAttempts, maxOffers,
+} = require('../config/env');
 const locationService = require('./locationService');
 const retryQueue = require('./retryQueue');
+const offerStore = require('./offerStore');
 const { getRestaurantLocation } = require('../clients/restaurantClient');
 const { publish } = require('../kafka/producer');
+const { ConflictError } = require('../errors/AppError');
 
 const ASSIGNMENT_TTL_SECONDS = 24 * 60 * 60;
 const assignmentKey = (orderId) => `delivery:assignment:${orderId}`;
 const cancelledKey = (orderId) => `delivery:cancelled:${orderId}`;
 
-async function matchOrder({ orderId, restaurantId }, { isRetry = false } = {}) {
+function publishEvent(eventType, orderId, extra = {}) {
+  publish(deliveryEventsTopic, orderId, {
+    eventType,
+    orderId,
+    occurredAt: new Date().toISOString(),
+    ...extra,
+  });
+}
 
+async function giveUp(orderId, attempts) {
+  await retryQueue.remove(orderId);
+  await offerStore.clear(orderId);
+  publishEvent('NO_PARTNER_FOUND', orderId, { attempts });
+  console.warn(`Giving up on order ${orderId} after ${attempts} attempts`);
+}
+
+async function scheduleRetryOrGiveUp(orderId, restaurantId, isRetry) {
+  const attempts = await retryQueue.incrementAttempts(orderId);
+  if (!isRetry) publishEvent('NO_PARTNER_AVAILABLE', orderId, { reason: 'NONE_NEARBY' });
+
+  if (attempts >= maxRetryAttempts) {
+    await giveUp(orderId, attempts);
+  } else {
+    await retryQueue.schedule(orderId, restaurantId, retryDelaySeconds);
+  }
+}
+
+async function matchOrder({ orderId, restaurantId }, { isRetry = false } = {}) {
   if (await redis.exists(cancelledKey(orderId))) {
     await retryQueue.remove(orderId);
     console.log(`Order ${orderId} is cancelled, not matching`);
@@ -22,41 +52,95 @@ async function matchOrder({ orderId, restaurantId }, { isRetry = false } = {}) {
     return;
   }
 
-  const { latitude, longitude } = await getRestaurantLocation(restaurantId);
-  if (latitude == null || longitude == null) {
-    console.warn(`Restaurant ${restaurantId} has no coordinates`);
-    await publishEvent('NO_PARTNER_AVAILABLE', orderId, { reason: 'RESTAURANT_HAS_NO_LOCATION' });
+  if (await offerStore.hasOffer(orderId)) {
+    console.log(`Order ${orderId} already has an offer in flight, skipping`);
     return;
   }
 
-  const candidates = await locationService.findNearest(latitude, longitude, searchRadiusKm, 5);
-  console.log(`Order ${orderId}: ${candidates.length} candidate(s) within ${searchRadiusKm} km of (${latitude}, ${longitude})`);
+  const tried = await offerStore.triedPartners(orderId);
+  if (tried.length >= maxOffers) {
+    await giveUp(orderId, tried.length);
+    return;
+  }
 
-  for (const { partnerId, distanceKm } of candidates) {
-    if (await locationService.claimPartner(partnerId, orderId)) {
-      await redis.set(assignmentKey(orderId), partnerId, 'EX', ASSIGNMENT_TTL_SECONDS);
-      await retryQueue.remove(orderId);
-      await publishEvent('DELIVERY_ASSIGNED', orderId, { partnerId, distanceKm });
-      console.log(`Order ${orderId} -> partner ${partnerId} (${distanceKm} km)${isRetry ? ' [retry]' : ''}`);
+  const { latitude, longitude } = await getRestaurantLocation(restaurantId);
+  if (latitude == null || longitude == null) {
+    console.warn(`Restaurant ${restaurantId} has no coordinates`);
+    publishEvent('NO_PARTNER_AVAILABLE', orderId, { reason: 'RESTAURANT_HAS_NO_LOCATION' });
+    return;
+  }
+
+  // maxOffers + 1 so already-tried riders can never fill the whole list
+  const candidates = await locationService.findNearest(latitude, longitude, searchRadiusKm, maxOffers + 1);
+  const untried = candidates.filter((c) => !tried.includes(c.partnerId));
+  console.log(`Order ${orderId}: ${untried.length} untried candidate(s) within ${searchRadiusKm} km`);
+
+  for (const { partnerId, distanceKm } of untried) {
+    if (!(await locationService.claimPartner(partnerId, orderId))) continue;
+
+    const created = await offerStore.createOffer(orderId, partnerId, distanceKm, restaurantId);
+    if (!created) {
+      // another match run created an offer first: undo our reservation
+      await locationService.releasePartner(partnerId, orderId);
       return;
     }
+    console.log(`Order ${orderId} offered to partner ${partnerId} (${distanceKm} km)${isRetry ? ' [retry]' : ''}`);
+    return;
   }
 
-  console.warn(`No partner available for order ${orderId}${isRetry ? ' (retry)' : ''}`);
+  console.warn(`No untried partner available for order ${orderId}${isRetry ? ' (retry)' : ''}`);
+  await scheduleRetryOrGiveUp(orderId, restaurantId, isRetry);
+}
 
-  const attempts = await retryQueue.incrementAttempts(orderId);
-  const givingUp = attempts >= maxRetryAttempts;
-  if (givingUp) {
-    await retryQueue.remove(orderId);
-  } else {
-    await retryQueue.schedule(orderId, restaurantId, retryDelaySeconds);
+async function getCurrentOffer(partnerId) {
+  const orderId = await locationService.getBusyOrder(partnerId);
+  if (!orderId) return null;
+  const offer = await offerStore.getOffer(orderId);
+  if (!offer || offer.partnerId !== partnerId) return null;
+  return {
+    orderId,
+    distanceKm: offer.distanceKm,
+    secondsLeft: Math.max(0, Math.round((offer.expiresAt - Date.now()) / 1000)),
+  };
+}
+
+async function acceptOffer(orderId, partnerId) {
+  const offer = await offerStore.takeOffer(orderId, partnerId);
+  if (!offer) throw new ConflictError('Offer expired, was declined, or is not yours');
+
+  await redis.set(assignmentKey(orderId), partnerId, 'EX', ASSIGNMENT_TTL_SECONDS);
+
+  // a cancel may have landed between takeOffer and the line above
+  if (await redis.exists(cancelledKey(orderId))) {
+    await releaseForOrder(orderId, 'cancelled');
+    return;
   }
 
-  if (!isRetry) publishEvent('NO_PARTNER_AVAILABLE', orderId, { reason: 'NONE_NEARBY' });
-  if (givingUp) {
-    publishEvent('NO_PARTNER_FOUND', orderId, { attempts });
-    console.warn(`Giving up on order ${orderId} after ${attempts} attempts`);
-  }
+  await retryQueue.remove(orderId);
+  await offerStore.clear(orderId);
+  publishEvent('DELIVERY_ASSIGNED', orderId, { partnerId, distanceKm: offer.distanceKm });
+  console.log(`Order ${orderId} -> partner ${partnerId} (offer accepted)`);
+}
+
+async function declineOffer(orderId, partnerId) {
+  const offer = await offerStore.takeOffer(orderId, partnerId);
+  if (!offer) throw new ConflictError('Offer expired, was already handled, or is not yours');
+
+  await locationService.releasePartner(partnerId, orderId);
+  console.log(`Partner ${partnerId} declined order ${orderId}`);
+
+  // do not await: the rider gets a fast response, the next offer goes out in the background
+  matchOrder({ orderId, restaurantId: offer.restaurantId }, { isRetry: true })
+    .catch((err) => console.error(`Re-match after decline failed for ${orderId}:`, err.message));
+}
+
+async function expireOffer(orderId) {
+  const offer = await offerStore.takeOffer(orderId); // '' = any owner
+  if (!offer) return; // accepted, declined or cancelled first: nothing to do
+
+  await locationService.releasePartner(offer.partnerId, orderId);
+  console.log(`Offer for order ${orderId} to partner ${offer.partnerId} timed out`);
+  await matchOrder({ orderId, restaurantId: offer.restaurantId }, { isRetry: true });
 }
 
 async function releaseForOrder(orderId, reason) {
@@ -76,20 +160,19 @@ async function handleStatusChange({ orderId, status }) {
   await releaseForOrder(orderId, 'delivered');
 }
 
-function publishEvent(eventType, orderId, extra = {}) {
-  publish(deliveryEventsTopic, orderId, {
-    eventType,
-    orderId,
-    occurredAt: new Date().toISOString(),
-    ...extra,
-  });
-}
-
 async function handleCancellation({ orderId }) {
   await redis.set(cancelledKey(orderId), '1', 'EX', ASSIGNMENT_TTL_SECONDS);
   await retryQueue.remove(orderId);
-  console.log(`Order ${orderId} cancelled: removed from retry queue`);
+
+  const offer = await offerStore.takeOffer(orderId);
+  if (offer) await locationService.releasePartner(offer.partnerId, orderId);
+  await offerStore.clear(orderId);
+
+  console.log(`Order ${orderId} cancelled: removed from retry queue and offers`);
   await releaseForOrder(orderId, 'cancelled');
 }
 
-module.exports = { matchOrder, handleStatusChange, handleCancellation };
+module.exports = {
+  matchOrder, handleStatusChange, handleCancellation,
+  getCurrentOffer, acceptOffer, declineOffer, expireOffer,
+};

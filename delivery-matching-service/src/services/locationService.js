@@ -82,4 +82,8 @@ async function  releasePartner(partnerId, orderId) {
   return deleted === 1;
 }
 
-module.exports = { reportLocation, claimPartner, releasePartner, goOffline, findNearest };
+async function getBusyOrder(partnerId) {
+  return redis.get(busyKey(partnerId));
+}
+
+module.exports = { reportLocation, claimPartner, releasePartner, goOffline, findNearest, getBusyOrder };
