@@ -43,3 +43,4 @@ function createApiClient(baseURL){
 export const userClient = createApiClient(import.meta.env.VITE_USER_SERVICE_URL);
 export const orderClient = createApiClient(import.meta.env.VITE_ORDER_SERVICE_URL);
 export const paymentClient = createApiClient(import.meta.env.VITE_PAYMENT_SERVICE_URL);
+export const deliveryClient = createApiClient(import.meta.env.VITE_DELIVERY_SERVICE_URL);

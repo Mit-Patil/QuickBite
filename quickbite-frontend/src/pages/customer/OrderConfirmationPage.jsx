@@ -7,6 +7,7 @@ import Button from '../../components/Button';
 import ErrorMessage from '../../components/ErrorMessage';
 import Notice from '../../components/Notice';
 import styles from './OrderConfirmationPage.module.css';
+import { statusLabel } from '../../utils/orderStatus';
 
 const STEPS = [
   { status: 'CONFIRMED', label: 'Confirmed' },
@@ -19,7 +20,7 @@ const STEPS = [
 
 const POLL_MS = 10000;
 
-function getHeadline(status, justPlaced) {
+function getHeadline(status, justPlaced, hasPartner) {
   if (status === 'CANCELLED') {
     return { icon: '✖', tone: 'danger', title: 'Order cancelled', text: 'This order was cancelled.' };
   }
@@ -33,7 +34,17 @@ function getHeadline(status, justPlaced) {
     return { icon: '⏳', tone: 'success', title: 'Waiting for the restaurant', text: 'The restaurant has a couple of minutes to accept your order.' };
   }
   if (status === 'ACCEPTED') {
-    return { icon: '👨‍🍳', tone: 'success', title: 'Restaurant accepted', text: 'We are finding a delivery partner for you.' };
+    return {
+      icon: '👨‍🍳',
+      tone: 'success',
+      title: hasPartner ? 'Delivery partner assigned' : 'Restaurant accepted',
+      text: hasPartner
+        ? 'Your delivery partner is heading to the restaurant.'
+        : 'We are finding a delivery partner for you.',
+    };
+  }
+  if (['PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'].includes(status)) {
+    return { icon: '🏍️', tone: 'success', title: statusLabel(status), text: '' };
   }
   if (justPlaced) {
     return { icon: '✓', tone: 'success', title: 'Order placed!', text: 'The restaurant has received your order.' };
@@ -54,7 +65,7 @@ function OrderConfirmationPage() {
   useEffect(() => {
     loadOrder();
     const timer = setInterval(() => {
-      if (!document.hidden) loadOrders();
+      if (!document.hidden) loadOrder();
     }, POLL_MS);
     return () => clearInterval(timer);
   }, [orderId]);
@@ -81,7 +92,7 @@ function OrderConfirmationPage() {
     );
   }
 
-  const headline = getHeadline(order.status, justPlaced);
+  const headline = getHeadline(order.status, justPlaced, Boolean(order.deliveryPartnerId));
   const currentStep = STEPS.findIndex((s) => s.status === order.status);
 
   return (
