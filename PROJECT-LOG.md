@@ -1197,3 +1197,48 @@ Session 51: partner UI (go online, see the offer with a countdown, accept or dec
 
 ### Interview line
 "I replaced direct rider assignment with sequential 40-second offers: each offer is a Redis hash with an expiry queue, and one Lua script reads and deletes it atomically so accept, decline, timeout and cancel can race safely with exactly one winner. I tested it with four simulated riders and measured about 162 seconds before giving up, against a 300-second target."
+
+
+## Session 51 — 25 Oct 2026: Delivery partner page, rider offers in the browser
+
+### Goal
+Give the delivery partner a page in the website to go online, receive the offers built in Session 50, and accept or decline them, and fix the customer order page so it follows status changes without a reload.
+
+### What was built / changed
+- quickbite-frontend: new deliveryClient (VITE_DELIVERY_SERVICE_URL) in axiosClient.js and api/deliveryService.js with the location, offline, current offer, accept and decline calls.
+- New hooks/usePolling.js: one reusable polling hook that always calls the latest callback and can keep running in a hidden tab. It drives the 10 s location ping, the 3 s offer poll and the 1 s countdown.
+- pages/delivery/DeliveryHome.jsx replaces the stub: Go online and Go offline with editable simulated coordinates, available or busy status, an offer card with the order, distance and a countdown, Accept and Decline, and a temporary accepted card. Go offline is disabled while the rider is busy or holding an offer. A latest-request-wins counter stops a slow poll from bringing back an offer the rider just declined, and the countdown start is kept per offer so polling does not reset it.
+- OrderConfirmationPage (customer): the refresh timer called loadOrders instead of loadOrder, so every 10 s tick threw and the page only updated after a reload. Fixed. Added a headline for PREPARING, READY_FOR_PICKUP and OUT_FOR_DELIVERY (the page kept saying Order placed), and the accepted headline now tells apart a waiting order from one with a delivery partner assigned.
+- No styling on purpose: design is planned for the end of the project.
+
+### Local setup note
+The frontend .env needs VITE_DELIVERY_SERVICE_URL=http://localhost:8084, and the dev server must be restarted after adding it.
+
+### Bugs found by testing and fixes
+- The customer order page only updated on reload: the polling timer called a function that did not exist (loadOrders). Fixed by calling loadOrder.
+- Found by reading the code: the customer headline ignored in-progress statuses and ignored whether a partner was assigned. Both fixed; the accepted headline change was checked in the browser.
+
+### Verified
+- Go online sends a location every 10 s and the rider appears in Redis with a heartbeat; Go offline removes him; an empty coordinate shows an error; a page refresh resets to Offline and the heartbeat expires.
+- A new accepted order shows the offer card within about 3 s with the distance, the countdown ticks down without resetting, and the card disappears at timeout. While the card shows, the status is busy and Go offline is disabled.
+- Accept assigns the partner and the owner page shows partner assigned; Decline hands the order to the next rider and the card does not flicker back; Accept is disabled at 0 s.
+- Accepting from another client first leaves the browser showing the 409 message (checked with the offer poll slowed to 15 s).
+- Full flow to DELIVERED releases the rider and the status returns to available after about 10 s; a restaurant cancel after accept also releases the rider.
+- The customer page follows each status change without a reload, and the accepted headline switches to Delivery partner assigned.
+
+### Known limitations
+- The accepted delivery card lives only in React state: a reload forgets it, and when the restaurant cancels the card just disappears instead of saying the order was cancelled. An active-delivery endpoint will fix this.
+- The rider location is typed by hand, not the device GPS. With a real laptop location the rider would usually be outside the 5 km search radius, so the simulated mode must stay for demos.
+- The backend only stores a rider location while he is not busy, so live tracking during a delivery needs one extra Redis key.
+- Everything is polling (3 s offers, 10 s location, 10 s customer status); the notification and WebSocket service is still planned.
+- Browsers throttle timers in a hidden tab, so the rider tab should stay visible or the 30 s heartbeat can expire.
+- Go offline while busy is blocked only in the UI; the backend still deletes the busy key (not tested).
+- The customer page keeps polling after a final status.
+- Pickup and delivered are still marked by the owner. The delivery database and history are not started. The leftover /delivery/* route in App.jsx was left untouched.
+- Earlier limitations from Sessions 46-50 still apply.
+
+### Next
+Session 52: delivery database for the delivery service (deliveries table written on accept, pickup, delivered and cancel). Then partner-driven pickup and delivered, the partner active-order card (including a cancelled state), rider history, the admin dashboard, the notification service, live tracking and Docker Compose.
+
+### Interview line
+"I built the rider's offer screen on a polling hook that always calls the latest handler, and I guarded it so a slow poll cannot bring back an offer the rider just declined, the same latest-request-wins idea I used on the owner page."
