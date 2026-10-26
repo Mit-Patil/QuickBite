@@ -1242,3 +1242,42 @@ Session 52: delivery database for the delivery service (deliveries table written
 
 ### Interview line
 "I built the rider's offer screen on a polling hook that always calls the latest handler, and I guarded it so a slow poll cannot bring back an offer the rider just declined, the same latest-request-wins idea I used on the owner page."
+
+## Session 52 — 26 Oct 2026: Delivery database, delivery history rows, riders-online sampler
+
+### Goal
+Give delivery-matching-service its own database so deliveries and rider activity are recorded, as the base for rider history and the admin dashboard.
+
+### What was built / changed
+- New Postgres database quickbite_delivery owned by delivery-matching-service (one database per service), applied by hand like other schema changes. Table deliveries: one row per assigned delivery with the order id (unique), partner, restaurant name, status (ASSIGNED, PICKED_UP, DELIVERED, CANCELLED), pickup distance and TIMESTAMPTZ columns for assigned, picked up, delivered and cancelled; delivery_fee and earning exist but stay empty until the rider takes over pickup and delivered. Table partner_snapshots: one row per minute with riders online and riders busy.
+- pg connection pool (config/db.js), checked at startup so a wrong DATABASE_URL fails immediately; DATABASE_URL is now required.
+- repositories/deliveryRepository.js: createAssigned (ON CONFLICT DO NOTHING), markPickedUp, markDelivered, markCancelled. Every update carries a status guard, so a duplicate or late event cannot move a row backwards or overwrite a finished one. All queries are parameterised.
+- matchingService: the row is created when a rider accepts an offer; pickup, delivered and cancel are recorded from the existing order events. One recordHistory helper logs a database failure instead of throwing, so history problems never block assigning or releasing a rider.
+- The restaurant name now travels from the restaurant lookup through the offer (offerStore stores and returns it) into the history row.
+- snapshotWorker.js: every 60 s it counts riders with a live heartbeat and riders with a busy key and stores a row. utils/intervalWorker.js is a shared helper for a non-overlapping interval worker (the retry and offer workers are not moved onto it yet).
+
+### Local setup note
+Create the quickbite_delivery database and run the two CREATE TABLE statements from the schema file, then add DATABASE_URL=postgres://USER:PASSWORD@localhost:5433/quickbite_delivery to the delivery service .env and run npm install.
+
+### Bugs found by testing and fixes
+- Startup failed: startSnapshotWorker is not a function. The worker file exports an object but app.js imported it as the function. Fixed by destructuring the import.
+- The first run of the duplicate-accept test proved nothing, because after an accept the rider has no current offer and the request went to an empty order id. Repeated with the order id read from the database.
+- A row stayed ASSIGNED after its order was cancelled while the table was renamed for the resilience test. This is the expected cost of swallowing history errors; the row was corrected by hand and the effect is listed below.
+
+### Verified
+- A rider accepting creates an ASSIGNED row with the restaurant name and pickup distance 0.48; preparing and ready leave it unchanged; out for delivery gives PICKED_UP with its time; delivered gives DELIVERED with its time; a restaurant cancel after accept gives CANCELLED with its time.
+- A repeated accept returns 409 and the table keeps exactly one row for the order.
+- With the table missing, the rider is still assigned and released and the order flow works; the console logs History update failed, and that order has no row afterwards.
+- Sampler: one row per minute, online matched the number of riders pinging (3), busy was 1 while a rider held an offer and while a rider had an accepted order and returned to 0 after the cancel, and online dropped to 0 after all riders went offline.
+
+### Known limitations
+- Kafka is still best-effort and history writes are swallowed on error, so a lost event or a failed write leaves a missing row or a stale status (seen once in testing). The rider's own actions will write directly next session.
+- Pickup and delivered times are the time the event is processed, not the event timestamp. Orders from before this session have no rows. delivery_fee and earning are empty.
+- Snapshots are instant samples every 60 s, so offers shorter than a minute can be missed; online includes busy riders; busy is 0 while an order is only waiting in the retry phase (no rider is reserved); a rider whose heartbeat lapsed mid-delivery still counts as busy; no rows are written while the service is down; there is no cleanup (about 1,440 rows a day).
+- Earlier limitations from Sessions 46-51 still apply.
+
+### Next
+Session 53: the rider's own Picked up and Delivered actions (through the delivery service, forwarding the rider token to the order service), the delivery fee and earning stored on the row, and a missing row created on demand. Then the partner active-order card with a cancelled state, rider history, the admin dashboard, the notification service, live tracking and Docker Compose.
+
+### Interview line
+"I gave the delivery service its own Postgres database and made every history write idempotent, with a unique order id and status guards, so duplicate, late or failed events cannot corrupt a rider's history, and a reporting failure never blocks assigning a rider."
