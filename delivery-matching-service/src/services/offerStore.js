@@ -5,8 +5,7 @@ const EXPIRY_KEY = 'delivery:offer:expiry';
 const TRIED_TTL_SECONDS = 24 * 60 * 60;
 
 const offerKey = (orderId) => `delivery:offer:${orderId}`;      
-const triedKey = (orderId) => `delivery:offer:${orderId}:tried`; 
-
+const triedKey = (orderId) => `delivery:offer:${orderId}:tried`;
 
 redis.defineCommand('takeOffer', {
   numberOfKeys: 1,
@@ -16,19 +15,26 @@ redis.defineCommand('takeOffer', {
     if ARGV[1] ~= '' and p ~= ARGV[1] then return false end
     local d = redis.call('HGET', KEYS[1], 'distanceKm')
     local r = redis.call('HGET', KEYS[1], 'restaurantId')
+    local n = redis.call('HGET', KEYS[1], 'restaurantName')
     redis.call('DEL', KEYS[1])
-    return {p, d, r}
+    return {p, d, r, n}
   `,
 });
 
-async function createOffer(orderId, partnerId, distanceKm, restaurantId) {
+async function createOffer(orderId, partnerId, distanceKm, restaurantId, restaurantName) {
   const created = await redis.hsetnx(offerKey(orderId), 'partnerId', partnerId);
   if (created !== 1) return false;
 
   const expiresAt = Date.now() + offerTimeoutSeconds * 1000;
   await redis
     .multi()
-    .hset(offerKey(orderId), 'distanceKm', distanceKm, 'restaurantId', restaurantId, 'expiresAt', expiresAt)
+    .hset(
+      offerKey(orderId),
+      'distanceKm', distanceKm,
+      'restaurantId', restaurantId,
+      'restaurantName', restaurantName || '',
+      'expiresAt', expiresAt
+    )
     .zadd(EXPIRY_KEY, expiresAt, orderId)
     .sadd(triedKey(orderId), partnerId)
     .expire(triedKey(orderId), TRIED_TTL_SECONDS)
@@ -39,8 +45,13 @@ async function createOffer(orderId, partnerId, distanceKm, restaurantId) {
 async function takeOffer(orderId, partnerId = '') {
   const result = await redis.takeOffer(offerKey(orderId), partnerId);
   if (!result) return null;
-  const [owner, distanceKm, restaurantId] = result;
-  return { partnerId: owner, distanceKm: parseFloat(distanceKm), restaurantId };
+  const [owner, distanceKm, restaurantId, restaurantName] = result;
+  return {
+    partnerId: owner,
+    distanceKm: parseFloat(distanceKm),
+    restaurantId,
+    restaurantName: restaurantName || null,
+  };
 }
 
 async function hasOffer(orderId) {

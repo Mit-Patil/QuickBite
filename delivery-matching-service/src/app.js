@@ -7,6 +7,8 @@ const partnerRoutes = require('./routes/partnerRoutes');
 const { startConsumer } = require('./kafka/consumer');
 const { startRetryWorker } = require('./services/retryWorker');
 const { startOfferWorker } = require('./services/offerWorker');
+const pool = require('./config/db');
+const { startSnapshotWorker } = require('./services/snapshotWorker');
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
@@ -19,9 +21,11 @@ app.use(errorHandler);
 
 async function start() {
   await redis.ping();
+  await pool.query('SELECT 1');
   await startConsumer();
   startRetryWorker();
   startOfferWorker();
+  startSnapshotWorker();
   app.listen(port, () => console.log(`delivery-matching-service on ${port}`));
 }
 

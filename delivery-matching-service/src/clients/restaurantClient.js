@@ -11,8 +11,8 @@ async function getRestaurantLocation(restaurantId) {
     if (res.status === 404) throw new NotFoundError(`Restaurant ${restaurantId} not found`);
     if (!res.ok) throw new Error(`Restaurant service responded ${res.status}`);
 
-    const { latitude, longitude } = await res.json();
-    return { latitude, longitude };
+    const { latitude, longitude, name } = await res.json();
+    return { latitude, longitude, name };
   });
 }
 

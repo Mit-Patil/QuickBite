@@ -15,6 +15,7 @@ module.exports = {
   jwtSecret: required('JWT_SECRET'),
   internalSecret: required('INTERNAL_SERVICE_SECRET'),
   restaurantServiceUrl: required('RESTAURANT_SERVICE_URL'),
+  databaseUrl: required('DATABASE_URL'),
   orderEventsTopic: 'order-events',
   deliveryEventsTopic: 'delivery-events',
   consumerGroupId: 'delivery-matching-service-consumers',

@@ -5,6 +5,7 @@ const {
 const locationService = require('./locationService');
 const retryQueue = require('./retryQueue');
 const offerStore = require('./offerStore');
+const deliveryRepository = require('../repositories/deliveryRepository');
 const { getRestaurantLocation } = require('../clients/restaurantClient');
 const { publish } = require('../kafka/producer');
 const { ConflictError } = require('../errors/AppError');
@@ -20,6 +21,14 @@ function publishEvent(eventType, orderId, extra = {}) {
     occurredAt: new Date().toISOString(),
     ...extra,
   });
+}
+
+async function recordHistory(orderId, action) {
+  try {
+    await action();
+  } catch (err) {
+    console.error(`History update failed for order ${orderId}:`, err.message);
+  }
 }
 
 async function giveUp(orderId, attempts) {
@@ -63,14 +72,13 @@ async function matchOrder({ orderId, restaurantId }, { isRetry = false } = {}) {
     return;
   }
 
-  const { latitude, longitude } = await getRestaurantLocation(restaurantId);
+  const { latitude, longitude, name } = await getRestaurantLocation(restaurantId);
   if (latitude == null || longitude == null) {
     console.warn(`Restaurant ${restaurantId} has no coordinates`);
     publishEvent('NO_PARTNER_AVAILABLE', orderId, { reason: 'RESTAURANT_HAS_NO_LOCATION' });
     return;
   }
 
-  // maxOffers + 1 so already-tried riders can never fill the whole list
   const candidates = await locationService.findNearest(latitude, longitude, searchRadiusKm, maxOffers + 1);
   const untried = candidates.filter((c) => !tried.includes(c.partnerId));
   console.log(`Order ${orderId}: ${untried.length} untried candidate(s) within ${searchRadiusKm} km`);
@@ -78,9 +86,8 @@ async function matchOrder({ orderId, restaurantId }, { isRetry = false } = {}) {
   for (const { partnerId, distanceKm } of untried) {
     if (!(await locationService.claimPartner(partnerId, orderId))) continue;
 
-    const created = await offerStore.createOffer(orderId, partnerId, distanceKm, restaurantId);
+    const created = await offerStore.createOffer(orderId, partnerId, distanceKm, restaurantId, name);
     if (!created) {
-      // another match run created an offer first: undo our reservation
       await locationService.releasePartner(partnerId, orderId);
       return;
     }
@@ -110,7 +117,6 @@ async function acceptOffer(orderId, partnerId) {
 
   await redis.set(assignmentKey(orderId), partnerId, 'EX', ASSIGNMENT_TTL_SECONDS);
 
-  // a cancel may have landed between takeOffer and the line above
   if (await redis.exists(cancelledKey(orderId))) {
     await releaseForOrder(orderId, 'cancelled');
     return;
@@ -118,6 +124,13 @@ async function acceptOffer(orderId, partnerId) {
 
   await retryQueue.remove(orderId);
   await offerStore.clear(orderId);
+  await recordHistory(orderId, () => deliveryRepository.createAssigned({
+    orderId,
+    partnerId,
+    restaurantId: offer.restaurantId,
+    restaurantName: offer.restaurantName,
+    pickupDistanceKm: offer.distanceKm,
+  }));
   publishEvent('DELIVERY_ASSIGNED', orderId, { partnerId, distanceKm: offer.distanceKm });
   console.log(`Order ${orderId} -> partner ${partnerId} (offer accepted)`);
 }
@@ -129,14 +142,13 @@ async function declineOffer(orderId, partnerId) {
   await locationService.releasePartner(partnerId, orderId);
   console.log(`Partner ${partnerId} declined order ${orderId}`);
 
-  // do not await: the rider gets a fast response, the next offer goes out in the background
   matchOrder({ orderId, restaurantId: offer.restaurantId }, { isRetry: true })
     .catch((err) => console.error(`Re-match after decline failed for ${orderId}:`, err.message));
 }
 
 async function expireOffer(orderId) {
-  const offer = await offerStore.takeOffer(orderId); // '' = any owner
-  if (!offer) return; // accepted, declined or cancelled first: nothing to do
+  const offer = await offerStore.takeOffer(orderId);
+  if (!offer) return; 
 
   await locationService.releasePartner(offer.partnerId, orderId);
   console.log(`Offer for order ${orderId} to partner ${offer.partnerId} timed out`);
@@ -156,13 +168,19 @@ async function releaseForOrder(orderId, reason) {
 }
 
 async function handleStatusChange({ orderId, status }) {
-  if (status !== 'DELIVERED') return;
-  await releaseForOrder(orderId, 'delivered');
+  if (status === 'OUT_FOR_DELIVERY') {
+    await recordHistory(orderId, () => deliveryRepository.markPickedUp(orderId));
+  }
+  if (status === 'DELIVERED') {
+    await recordHistory(orderId, () => deliveryRepository.markDelivered(orderId));
+    await releaseForOrder(orderId, 'delivered');
+  }
 }
 
 async function handleCancellation({ orderId }) {
   await redis.set(cancelledKey(orderId), '1', 'EX', ASSIGNMENT_TTL_SECONDS);
   await retryQueue.remove(orderId);
+  await recordHistory(orderId, () => deliveryRepository.markCancelled(orderId));
 
   const offer = await offerStore.takeOffer(orderId);
   if (offer) await locationService.releasePartner(offer.partnerId, orderId);
