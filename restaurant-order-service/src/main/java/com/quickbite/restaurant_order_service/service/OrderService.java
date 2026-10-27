@@ -327,23 +327,7 @@ public class OrderService {
             throw new IllegalStateException("Waiting for a delivery partner to be assigned");
         }
         
-        OrderStatus previousStatus = order.getStatus();
-        
-        order.setStatus(newStatus);
-        order = orderRepository.save(order);
-        
-        orderEventPublisher.publish(OrderEvent.builder()
-                .eventType("STATUS_CHANGED")
-                .orderId(order.getId())
-                .customerId(order.getCustomerId())
-                .restaurantId(order.getRestaurant().getId())
-                .status(newStatus.name())
-                .previousStatus(previousStatus.name())
-                .occurredAt(java.time.Instant.now())
-                .build()
-        );
-        
-        return toResponse(order);
+        return toResponse(applyStatusChange(order, newStatus));
     }
     
     private void validateStatusTransition(OrderStatus current, OrderStatus next){
@@ -508,6 +492,47 @@ public class OrderService {
         }
         applyCancellation(order, "No delivery partner available");
         log.info("Order {} auto-cancelled: no delivery partner found", orderId);
+    }
+    
+    @Transactional
+    public OrderResponse pickUpOrder(UUID orderId, UUID partnerId) {
+        return changeStatusAsPartner(orderId, partnerId, OrderStatus.OUT_FOR_DELIVERY);
+    }
+
+    @Transactional
+    public OrderResponse deliverOrder(UUID orderId, UUID partnerId) {
+        return changeStatusAsPartner(orderId, partnerId, OrderStatus.DELIVERED);
+    }
+
+    private OrderResponse changeStatusAsPartner(UUID orderId, UUID partnerId, OrderStatus target) {
+        Order order = orderRepository.findWithLockById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+
+        if (!partnerId.equals(order.getDeliveryPartnerId())) {
+            throw new IllegalArgumentException("This is not your delivery");
+        }
+        if (order.getStatus() == target) {
+            return toResponse(order); 
+        }
+        validateStatusTransition(order.getStatus(), target);
+        return toResponse(applyStatusChange(order, target));
+    }
+
+    private Order applyStatusChange(Order order, OrderStatus newStatus) {
+        OrderStatus previousStatus = order.getStatus();
+        order.setStatus(newStatus);
+        order = orderRepository.save(order);
+
+        orderEventPublisher.publish(OrderEvent.builder()
+                .eventType("STATUS_CHANGED")
+                .orderId(order.getId())
+                .customerId(order.getCustomerId())
+                .restaurantId(order.getRestaurant().getId())
+                .status(newStatus.name())
+                .previousStatus(previousStatus.name())
+                .occurredAt(java.time.Instant.now())
+                .build());
+        return order;
     }
     
     private OrderResponse toResponse(Order order) {

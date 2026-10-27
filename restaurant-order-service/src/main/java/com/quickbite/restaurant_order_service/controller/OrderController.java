@@ -66,6 +66,18 @@ public class OrderController {
         return ResponseEntity.ok(orderService.rejectOrder(id, getCurrentUserId(), request));
     }
 
+    @PatchMapping("/{id}/pickup")
+    @PreAuthorize("hasRole('DELIVERY_PARTNER')")
+    public ResponseEntity<OrderResponse> pickUp(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.pickUpOrder(id, getCurrentUserId()));
+    }
+
+    @PatchMapping("/{id}/deliver")
+    @PreAuthorize("hasRole('DELIVERY_PARTNER')")
+    public ResponseEntity<OrderResponse> deliver(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.deliverOrder(id, getCurrentUserId()));
+    }
+    
     private UUID getCurrentUserId() {
         return (UUID) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
     }
