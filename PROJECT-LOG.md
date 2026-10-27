@@ -1281,3 +1281,39 @@ Session 53: the rider's own Picked up and Delivered actions (through the deliver
 
 ### Interview line
 "I gave the delivery service its own Postgres database and made every history write idempotent, with a unique order id and status guards, so duplicate, late or failed events cannot corrupt a rider's history, and a reporting failure never blocks assigning a rider."
+
+
+## Session 53 — 27 Oct 2026: Rider pickup and delivered endpoints in the order service
+
+### Goal
+Let the assigned delivery partner, not the restaurant owner, mark an order picked up and delivered. This session covers the order service side; the delivery service side follows next session.
+
+### What was built / changed
+- OrderController: PATCH /api/orders/{id}/pickup and /deliver, DELIVERY_PARTNER only. The method-level PreAuthorize overrides the class-level CUSTOMER rule, as the owner endpoints already do.
+- OrderService: pickUpOrder and deliverOrder share changeStatusAsPartner. It locks the order row, lets only the assigned partner act (otherwise 400 This is not your delivery), and when the order is already at the target status it returns the order without publishing a second event, so a retry after a failed downstream write is harmless. Otherwise it applies the existing transition check (pickup only from READY_FOR_PICKUP, deliver only from OUT_FOR_DELIVERY).
+- Extracted applyStatusChange (set status, save, publish STATUS_CHANGED); the owner updateOrderStatus now uses it too instead of a duplicated block.
+- The owner can still set pickup and delivered through the generic status endpoint, on purpose, until the partner screen replaces it.
+
+### Local setup note
+In the delivery service .env, DATABASE_URL must use 127.0.0.1 instead of localhost (same IPv6 problem as the Kafka listener in Session 48).
+
+### Bugs found by testing and fixes
+- Intermittent read ECONNRESET on the delivery service Postgres connections: one history row was not created and snapshot ticks failed while DATABASE_URL used localhost. Switched to 127.0.0.1, after which a new order produced its history row and the console showed no database errors. The cause (localhost resolving to IPv6 on Windows) is suspected, not proven, and the fix was confirmed in one run.
+
+### Verified
+- Pickup or deliver before the right status returns 409 with the transition message. After the owner marks ready, pickup gives OUT_FOR_DELIVERY and deliver gives DELIVERED.
+- Repeating a pickup or a deliver returns 200 and the order service logs exactly one STATUS_CHANGED event per status.
+- A pickup after DELIVERED returns 409, a wrong rider gets 400, the owner and the customer get 403, and an unknown order returns 400.
+- The owner status endpoint still works after the refactor (PREPARING and READY_FOR_PICKUP are published as before), and the delivery service still releases the rider on the DELIVERED event.
+
+### Known limitations
+- The delivery service does not call the new endpoints yet and no screen uses them; the owner can still mark pickup and delivered. delivery_fee and earning in the deliveries table are still empty.
+- The message text of the 400 responses was not checked, only the status code.
+- The ECONNRESET fix is confirmed in a single run only.
+- Events are still published before the transaction commits and Kafka stays best-effort. Earlier limitations from Sessions 46-52 still apply.
+
+### Next
+The delivery service pickup and deliver actions (forwarding the rider token, fee and earning stored on the delivery row), then the partner active-order card with a cancelled state, the owner stops marking pickup and delivered, rider history, the admin dashboard and Docker Compose.
+
+### Interview line
+"I made the rider's pickup and delivered endpoints idempotent and ownership-checked inside a row lock, so a retried request after a partial failure returns success without publishing a duplicate event, and I extracted the save-and-publish step so the owner and the rider share one implementation."
