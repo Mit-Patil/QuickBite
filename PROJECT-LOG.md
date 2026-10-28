@@ -1317,3 +1317,41 @@ The delivery service pickup and deliver actions (forwarding the rider token, fee
 
 ### Interview line
 "I made the rider's pickup and delivered endpoints idempotent and ownership-checked inside a row lock, so a retried request after a partial failure returns success without publishing a duplicate event, and I extracted the save-and-publish step so the owner and the rider share one implementation."
+
+
+## Session 54 — 28 Oct 2026: Rider pickup and delivered through the delivery service, earning stored
+
+### Goal
+Let the rider's own Picked up and Delivered actions go through the delivery service, which forwards the rider token to the order service and records the delivery fee and the rider's earning on the delivery row.
+
+### What was built / changed
+- delivery-matching-service: POST /api/delivery/orders/:orderId/pickup and /deliver for the DELIVERY_PARTNER role. matchingService.pickUp and deliver first check that this rider holds the assignment (Redis assignment key, otherwise 403), then call the order service with the rider's own token through the new clients/orderClient.js, then update the deliveries row. The client maps the order service answers to the existing error classes (400 ValidationError, 403 ForbiddenError, 404 NotFoundError, 409 ConflictError) and anything else or an unreachable service to a new ServiceUnavailableError (503).
+- deliveryRepository.markDelivered now takes the fee and earning and uses COALESCE with DELIVERED allowed in its status guard, so the rider's direct call and the Kafka event can arrive in either order without losing the fee and earning.
+- Earning is the delivery fee times RIDER_SHARE_PERCENT divided by 100 (default 80 in env.js) and is stored at delivery time, so changing the rule later does not rewrite history. The rider is released immediately on deliver; the Kafka event stays as a fallback.
+- The order service URL reuses RESTAURANT_SERVICE_URL, because restaurant-order-service is one service. New controllers/deliveryController.js and two routes.
+
+### Local setup note
+Add RIDER_SHARE_PERCENT=100 (or your share) to the delivery service .env, in that service folder, then type rs, because nodemon does not restart on .env changes and dotenv reads only the .env of the folder the service starts in.
+
+### Bugs found by testing and fixes
+- The first deliver returned 500 Something went wrong: riderSharePercent was used in matchingService but not imported (console: riderSharePercent is not defined). Fixed by adding it to the env require. The order was already DELIVERED at that point, and calling deliver again completed the row (fee and earning filled, delivered_at kept), which is the retry design working.
+- The earning stayed at 24 with RIDER_SHARE_PERCENT=100 because the line was not in the delivery service .env and the service was not restarted. After adding it to the right file and restarting, a new order showed 30. Older rows keep their earning by design.
+
+### Verified
+- Pickup before the order is ready and deliver before pickup return 409 with the transition message; after the owner marks ready, pickup returns OUT_FOR_DELIVERY and a repeated pickup returns the same.
+- Another rider gets 403 This is not your delivery, the owner token gets 403 from the role check, and an unknown order gets 403.
+- Deliver returns DELIVERED with deliveryFee 30 and the earning, a repeated deliver returns the same numbers, and the rider's busy key is empty right after.
+- The delivery row ends DELIVERED with picked up and delivered times, delivery_fee 30.00 and earning 30.00 (at 100 percent); the order that first failed with the 500 ended with 30.00 and 24.00 after the retry, with its delivered time unchanged.
+
+### Known limitations
+- No screen calls the new endpoints yet, and the owner can still mark pickup and delivered. The order service down case (503) was not tested.
+- Earning is a fixed share of a flat delivery fee, with no incentive or tip. Postgres returns NUMERIC as strings, so the history endpoints must convert them.
+- If the row update fails after the order service accepted, the Kafka event still sets the status but fee and earning stay empty until the rider retries.
+- A rider can only act within 24 hours of the assignment (the Redis assignment key expires). Rows from before this session have no fee or earning.
+- The event path logs a harmless not released line after the direct release. Earlier limitations from Sessions 46-53 still apply.
+
+### Next
+An active-delivery endpoint and the partner active-order card with a cancelled state that survives a reload, then the owner stops marking pickup and delivered, rider history, the admin dashboard and Docker Compose.
+
+### Interview line
+"I split the rider's delivery action so the order service stays the single source of truth for status while the delivery service records the earning, and I wrote the update with COALESCE so the rider's direct call and the Kafka event can arrive in either order without losing the earning."
