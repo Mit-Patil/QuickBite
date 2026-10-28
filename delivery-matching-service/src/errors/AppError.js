@@ -26,4 +26,8 @@ class ConflictError extends AppError {
   constructor(message) { super(message, 409); }
 }
 
-module.exports = { AppError, ValidationError, NotFoundError, UnauthorizedError, ForbiddenError, ConflictError };
+class ServiceUnavailableError extends AppError {
+  constructor(message) { super(message, 503); }
+}
+
+module.exports = { AppError, ValidationError, NotFoundError, UnauthorizedError, ForbiddenError, ConflictError, ServiceUnavailableError };

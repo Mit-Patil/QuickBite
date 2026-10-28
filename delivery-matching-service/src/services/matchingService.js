@@ -1,6 +1,6 @@
 const redis = require('../config/redis');
 const {
-  searchRadiusKm, deliveryEventsTopic, retryDelaySeconds, maxRetryAttempts, maxOffers,
+  searchRadiusKm, deliveryEventsTopic, retryDelaySeconds, maxRetryAttempts, maxOffers, riderSharePercent,
 } = require('../config/env');
 const locationService = require('./locationService');
 const retryQueue = require('./retryQueue');
@@ -9,6 +9,8 @@ const deliveryRepository = require('../repositories/deliveryRepository');
 const { getRestaurantLocation } = require('../clients/restaurantClient');
 const { publish } = require('../kafka/producer');
 const { ConflictError } = require('../errors/AppError');
+const { changeOrderStatus } = require('../clients/orderClient');
+const { ForbiddenError } = require('../errors/AppError');
 
 const ASSIGNMENT_TTL_SECONDS = 24 * 60 * 60;
 const assignmentKey = (orderId) => `delivery:assignment:${orderId}`;
@@ -155,6 +157,30 @@ async function expireOffer(orderId) {
   await matchOrder({ orderId, restaurantId: offer.restaurantId }, { isRetry: true });
 }
 
+async function assertAssignedTo(orderId, partnerId) {
+  const assigned = await redis.get(assignmentKey(orderId));
+  if (assigned !== partnerId) throw new ForbiddenError('This is not your delivery');
+}
+
+async function pickUp(orderId, partnerId, authHeader) {
+  await assertAssignedTo(orderId, partnerId);
+  await changeOrderStatus(orderId, 'pickup', authHeader);
+  await recordHistory(orderId, () => deliveryRepository.markPickedUp(orderId));
+  console.log(`Order ${orderId} picked up by partner ${partnerId}`);
+}
+
+async function deliver(orderId, partnerId, authHeader) {
+  await assertAssignedTo(orderId, partnerId);
+  const order = await changeOrderStatus(orderId, 'deliver', authHeader);
+
+  const deliveryFee = Number(order.deliveryFee);
+  const earning = Math.round(deliveryFee * riderSharePercent) / 100;
+  await recordHistory(orderId, () => deliveryRepository.markDelivered(orderId, { deliveryFee, earning }));
+  await releaseForOrder(orderId, 'delivered'); 
+  console.log(`Order ${orderId} delivered by partner ${partnerId} (fee ${deliveryFee}, earning ${earning})`);
+  return { deliveryFee, earning };
+}
+
 async function releaseForOrder(orderId, reason) {
   const partnerId = await redis.get(assignmentKey(orderId));
   if (!partnerId) return;
@@ -193,4 +219,5 @@ async function handleCancellation({ orderId }) {
 module.exports = {
   matchOrder, handleStatusChange, handleCancellation,
   getCurrentOffer, acceptOffer, declineOffer, expireOffer,
+  pickUp, deliver
 };

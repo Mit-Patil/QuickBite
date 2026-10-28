@@ -17,11 +17,15 @@ async function markPickedUp(orderId) {
   );
 }
 
-async function markDelivered(orderId) {
+async function markDelivered(orderId, { deliveryFee = null, earning = null } = {}) {
   await pool.query(
-    `UPDATE deliveries SET status = 'DELIVERED', delivered_at = now()
-     WHERE order_id = $1 AND status IN ('ASSIGNED', 'PICKED_UP')`,
-    [orderId]
+    `UPDATE deliveries
+     SET status = 'DELIVERED',
+         delivered_at = COALESCE(delivered_at, now()),
+         delivery_fee = COALESCE(delivery_fee, $2),
+         earning = COALESCE(earning, $3)
+     WHERE order_id = $1 AND status IN ('ASSIGNED', 'PICKED_UP', 'DELIVERED')`,
+    [orderId, deliveryFee, earning]
   );
 }
 

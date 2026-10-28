@@ -25,6 +25,7 @@ module.exports = {
   offerTimeoutSeconds: 40,
   maxOffers: 4,
   offerTickMs: 2000,
+  riderSharePercent: Number(process.env.RIDER_SHARE_PERCENT || 80),
 
   heartbeatTtlSeconds: 30,
   searchRadiusKm: 5,
