@@ -1355,3 +1355,40 @@ An active-delivery endpoint and the partner active-order card with a cancelled s
 
 ### Interview line
 "I split the rider's delivery action so the order service stays the single source of truth for status while the delivery service records the earning, and I wrote the update with COALESCE so the rider's direct call and the Kafka event can arrive in either order without losing the earning."
+
+
+## Session 55 — 29 Oct 2026: Active delivery endpoint for the rider
+
+### Goal
+Let the partner page know the rider's current delivery, including after a reload, and show a delivery the restaurant just cancelled, by exposing it from the delivery service.
+
+### What was built / changed
+- deliveries table: new column order_status (ACCEPTED, PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY, DELIVERED) so the rider's card knows whether the food is ready. The PREPARING and READY_FOR_PICKUP events advance it through advanceOrderStatus, which only moves it forward (an array_position comparison in the SQL), so a late or duplicate event cannot move it back. markPickedUp and markDelivered set it too.
+- GET /api/delivery/orders/current for the DELIVERY_PARTNER role: returns the rider's active delivery (ASSIGNED or PICKED_UP) with order id, restaurant name, status, order status, pickup distance, assigned, picked up and cancelled times. When there is none, it returns a delivery the restaurant cancelled within RECENT_CANCEL_MINUTES (default 10), and only if that is the rider's latest delivery; otherwise 204. An active delivery always wins over a recent cancel.
+- matchingService.getCurrentDelivery maps the row (Postgres returns NUMERIC as a string, so the distance is converted to a number) and handleStatusChange records the two new statuses. New recentCancelMinutes value in env.js, new controller function and route.
+
+### Local setup note
+Run ALTER TABLE deliveries ADD COLUMN order_status VARCHAR(20) NOT NULL DEFAULT 'ACCEPTED'; on quickbite_delivery and save it in the schema file. RECENT_CANCEL_MINUTES in the delivery service .env is optional (default 10); type rs after changing it.
+
+### Bugs found by testing and fixes
+- A delivery cancelled about nine minutes earlier reappeared after the rider finished a later delivery, so a reload would show Order cancelled again. Fixed by returning a cancelled row only when the rider has no newer delivery (a NOT EXISTS condition). The first check was inconclusive because the old cancel was already outside the window, so it was proved with a fresh cancel followed by a later delivery inside the window.
+
+### Verified
+- With no delivery the endpoint returns 204. After a rider accepts it returns ASSIGNED with order status ACCEPTED, the restaurant name and the distance as a number, and it follows PREPARING and READY_FOR_PICKUP; after pickup it shows PICKED_UP, OUT_FOR_DELIVERY and the pickup time; after deliver it returns 204 again.
+- Another rider gets 204, and the owner and customer tokens get 403.
+- A restaurant cancel after accept returns CANCELLED with its time (order status keeps its last value); a rider with no delivery sees nothing.
+- While a new delivery is active it is returned instead of a recent cancel, and once that delivery finishes the earlier cancel no longer shows.
+- With RECENT_CANCEL_MINUTES=1 a cancelled delivery stopped showing after about 70 seconds.
+- The SQL condition behind advanceOrderStatus refused a backwards change (UPDATE 0), and no History update failed errors appeared in the delivery service.
+
+### Known limitations
+- The partner page does not call the endpoint yet.
+- The forward-only rule was checked with the SQL condition itself, not by replaying a late Kafka event. If a PREPARING or READY_FOR_PICKUP event is lost (Kafka is best-effort), the order status on the card lags until pickup.
+- The cancelled card has no reason text (the delivery row does not store it), cannot be dismissed, and is shown only for the window and only when it is the rider's latest delivery.
+- Rows created before this session got order_status ACCEPTED from the column default. Earlier limitations from Sessions 46-54 still apply.
+
+### Next
+The partner active-order card in the frontend (survives a reload, shows preparing, ready and cancelled states, Picked up and Delivered buttons calling the delivery endpoints), then the owner stops marking pickup and delivered, rider history, the admin dashboard and Docker Compose.
+
+### Interview line
+"I made the rider's current-delivery endpoint safe against out-of-order Kafka events by moving the order status only forward in SQL, and I proved the cancelled state with a scenario test: cancel one order, deliver another, and check the old cancel no longer resurfaces."
