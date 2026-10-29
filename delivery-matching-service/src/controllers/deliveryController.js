@@ -10,4 +10,10 @@ async function deliver(req, res) {
   res.json({ orderId: req.params.orderId, status: 'DELIVERED', ...result });
 }
 
-module.exports = { pickUp, deliver };
+async function current(req, res) {
+  const delivery = await matchingService.getCurrentDelivery(req.userId);
+  if (!delivery) return res.status(204).send();
+  res.json(delivery);
+}
+
+module.exports = { pickUp, deliver, current };

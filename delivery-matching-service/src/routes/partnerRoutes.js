@@ -17,5 +17,6 @@ router.post('/offers/:orderId/decline', offerController.declineOffer);
 
 router.post('/orders/:orderId/pickup', deliveryController.pickUp);
 router.post('/orders/:orderId/deliver', deliveryController.deliver);
+router.get('/orders/current', deliveryController.current);
 
 module.exports = router;

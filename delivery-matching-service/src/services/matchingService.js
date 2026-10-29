@@ -1,6 +1,6 @@
 const redis = require('../config/redis');
 const {
-  searchRadiusKm, deliveryEventsTopic, retryDelaySeconds, maxRetryAttempts, maxOffers, riderSharePercent,
+  searchRadiusKm, deliveryEventsTopic, retryDelaySeconds, maxRetryAttempts, maxOffers, riderSharePercent, recentCancelMinutes
 } = require('../config/env');
 const locationService = require('./locationService');
 const retryQueue = require('./retryQueue');
@@ -181,6 +181,21 @@ async function deliver(orderId, partnerId, authHeader) {
   return { deliveryFee, earning };
 }
 
+async function getCurrentDelivery(partnerId) {
+  const row = await deliveryRepository.findCurrentForPartner(partnerId, recentCancelMinutes);
+  if (!row) return null;
+  return {
+    orderId: row.order_id,
+    restaurantName: row.restaurant_name,
+    status: row.status,
+    orderStatus: row.order_status,
+    pickupDistanceKm: row.pickup_distance_km === null ? null : Number(row.pickup_distance_km),
+    assignedAt: row.assigned_at,
+    pickedUpAt: row.picked_up_at,
+    cancelledAt: row.cancelled_at,
+  };
+}
+
 async function releaseForOrder(orderId, reason) {
   const partnerId = await redis.get(assignmentKey(orderId));
   if (!partnerId) return;
@@ -194,6 +209,9 @@ async function releaseForOrder(orderId, reason) {
 }
 
 async function handleStatusChange({ orderId, status }) {
+  if (status === 'PREPARING' || status === 'READY_FOR_PICKUP') {
+    await recordHistory(orderId, () => deliveryRepository.advanceOrderStatus(orderId, status));
+  }
   if (status === 'OUT_FOR_DELIVERY') {
     await recordHistory(orderId, () => deliveryRepository.markPickedUp(orderId));
   }
@@ -219,5 +237,5 @@ async function handleCancellation({ orderId }) {
 module.exports = {
   matchOrder, handleStatusChange, handleCancellation,
   getCurrentOffer, acceptOffer, declineOffer, expireOffer,
-  pickUp, deliver
+  pickUp, deliver, getCurrentDelivery
 };

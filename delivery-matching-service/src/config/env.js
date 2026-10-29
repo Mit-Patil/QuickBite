@@ -26,7 +26,8 @@ module.exports = {
   maxOffers: 4,
   offerTickMs: 2000,
   riderSharePercent: Number(process.env.RIDER_SHARE_PERCENT || 80),
-
+  recentCancelMinutes: Number(process.env.RECENT_CANCEL_MINUTES || 10),
+  
   heartbeatTtlSeconds: 30,
   searchRadiusKm: 5,
 };
