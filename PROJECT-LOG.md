@@ -1392,3 +1392,38 @@ The partner active-order card in the frontend (survives a reload, shows preparin
 
 ### Interview line
 "I made the rider's current-delivery endpoint safe against out-of-order Kafka events by moving the order status only forward in SQL, and I proved the cancelled state with a scenario test: cancel one order, deliver another, and check the old cancel no longer resurfaces."
+
+
+## Session 56 — 31 Oct 2026: Partner active-order card, rider-driven pickup and delivered in the UI
+
+### Goal
+Give the delivery partner a card that shows the current delivery (surviving a reload, with preparing, ready and cancelled states) and Picked up and Delivered buttons, and take pickup and delivered away from the restaurant owner.
+
+### What was built / changed
+- quickbite-frontend: api/deliveryService.js gains getCurrentDelivery, pickUpOrder, deliverOrder and runDeliveryAction (one mapping from action key to API call, like runOwnerAction).
+- New hooks/useRequestGuard.js: a reusable latest-request-wins helper (start, isCurrent, invalidate), used for the offer poll and the delivery poll instead of repeating the counter.
+- utils/orderStatus.js stays the single source of truth for status wording and rules: it now carries partner text on six statuses plus partnerStatusText and partnerActions, so no separate delivery status file was needed.
+- pages/delivery/DeliveryHome.jsx: a Current delivery card read from GET /api/delivery/orders/current every 5 s whether or not the rider is online, so it survives a reload. Picked up is disabled until the order is ready, then Delivered; after a failed action the card re-reads the server; a cancelled delivery shows a message with a Dismiss button. The old temporary accepted card is gone. Go offline is disabled while the rider is busy, holds an offer or has an active delivery.
+- Owner side: Mark out for delivery and Mark delivered were removed from ownerActions and runOwnerAction, and the owner orders page shows a hint for Ready for pickup and Out for delivery instead.
+- restaurant-order-service: updateOrderStatus now rejects OUT_FOR_DELIVERY and DELIVERED (400) before the transition check, so only the assigned delivery partner can set them, and a direct API call cannot bypass the screen.
+
+### Bugs found by testing and fixes
+- Go online was disabled after a reload during an active delivery, so the rider could not resume his location pings. The disable rule now applies only while the rider is online. Verified: after a reload the card shows, Go online is enabled, and after clicking it the heartbeat key exists again.
+
+### Verified
+- The card appears within about 5 s of accepting an offer, follows accepted, preparing, ready and on the way, survives a reload, and disappears after delivery; a restaurant cancel shows Delivery cancelled with Dismiss, and a dismissed card stays gone.
+- Picked up is disabled for accepted and preparing, enabled when ready, then Delivered finishes the order; the delivery row ends DELIVERED with fee 30.00 and earning 30.00. A pickup sent from PowerShell and a click on Picked up in the browser together cause no error.
+- Offers still work after the hook refactor (countdown without jumping back, decline and timeout).
+- The owner page shows no pickup or delivered buttons and shows the hint text, the owner status endpoint returns 400 for OUT_FOR_DELIVERY and DELIVERED, the rider pickup and deliver calls still return OK, and the owner can still start preparing and mark ready.
+
+### Known limitations
+- After a reload the page shows Offline and the location pings stop until the rider clicks Go online, although the delivery card is still shown.
+- A dismissed cancelled card comes back after a reload until the 10 minute window ends. Picked up depends on the READY_FOR_PICKUP event reaching the delivery service (Kafka is best-effort); if it were lost the button would stay disabled.
+- The owner can no longer finish an order whose rider disappears after pickup; an admin override is needed later. Test scripts must use the delivery endpoints for pickup and delivered.
+- The message text of the owner 400 was not inspected, only the status code. Everything is still polling (3 s offers, 5 s card, 10 s customer page) and the rider location is typed by hand. Earlier limitations from Sessions 46-55 still apply.
+
+### Next
+Rider history and month summary endpoints with a history page, then the admin dashboard, Docker Compose, the notification service and the design pass.
+
+### Interview line
+"I moved the rider's active delivery to a server-driven card that survives a reload, and I enforced the new ownership rule in both places: the owner screen no longer offers pickup and delivered, and the order service rejects them, so a direct API call cannot bypass the UI."
