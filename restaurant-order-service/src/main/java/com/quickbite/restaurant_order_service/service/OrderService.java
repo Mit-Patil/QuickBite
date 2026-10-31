@@ -320,6 +320,9 @@ public class OrderService {
         if (newStatus == OrderStatus.ACCEPTED || newStatus == OrderStatus.CANCELLED) {
             throw new IllegalArgumentException("Use the accept or cancel endpoint for this change");
         }
+        if (newStatus == OrderStatus.OUT_FOR_DELIVERY || newStatus == OrderStatus.DELIVERED) {
+            throw new IllegalArgumentException("Only the assigned delivery partner can mark an order picked up or delivered");
+        }
         
         validateStatusTransition(order.getStatus(), newStatus);
         
