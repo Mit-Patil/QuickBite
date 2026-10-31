@@ -114,6 +114,12 @@ function OrdersPage() {
                     {order.deliveryPartnerId ? 'Delivery partner assigned' : 'Finding a delivery partner…'}
                   </p>
                 )}
+                {order.status === 'READY_FOR_PICKUP' && (
+                  <p className={styles.muted}>Waiting for the delivery partner to pick it up.</p>
+                )}
+                {order.status === 'OUT_FOR_DELIVERY' && (
+                  <p className={styles.muted}>With the delivery partner, on the way to the customer.</p>
+                )}
 
                 {order.cancellationReason && (
                   <p className={styles.cancelReason}>Cancelled: {order.cancellationReason}</p>

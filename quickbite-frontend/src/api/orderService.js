@@ -37,8 +37,6 @@ export function runOwnerAction(key, orderId, reason) {
     case 'cancel':  return cancelOrder(orderId, reason);
     case 'prepare': return updateOrderStatus(orderId, 'PREPARING');
     case 'ready':   return updateOrderStatus(orderId, 'READY_FOR_PICKUP');
-    case 'pickup':  return updateOrderStatus(orderId, 'OUT_FOR_DELIVERY');
-    case 'deliver': return updateOrderStatus(orderId, 'DELIVERED');
     default:        throw new Error(`Unknown action: ${key}`);
   }
 }
