@@ -1427,3 +1427,35 @@ Rider history and month summary endpoints with a history page, then the admin da
 
 ### Interview line
 "I moved the rider's active delivery to a server-driven card that survives a reload, and I enforced the new ownership rule in both places: the owner screen no longer offers pickup and delivered, and the order service rejects them, so a direct API call cannot bypass the UI."
+
+
+## Session 57 — 1 Nov 2026: Rider history and month summary endpoint
+
+### Goal
+Give the delivery partner a history of delivered orders by month with a summary, as the base for the history page and, later, the admin dashboard.
+
+### What was built / changed
+- delivery-matching-service: GET /api/delivery/history?month=YYYY-MM&page=0&size=10 for the DELIVERY_PARTNER role. It returns the month, page, size, totalPages, a summary (deliveries, totalEarning, averageMinutes, daysWorked) and the delivered items newest first (order id, restaurant name, assigned, picked up and delivered times, pickup distance, delivery fee, earning). The month defaults to the current month in India time. No schema change.
+- deliveryRepository: summarizeDelivered and findDelivered share one month filter constant, so the list and the summary can never disagree. The partner id is optional (null means every rider), so the admin dashboard can reuse both queries. The month boundaries are built in SQL with make_timestamptz in Asia/Kolkata from integer year and month, with no date arithmetic in JavaScript, and the order is stable (delivered time, then order id) for paging.
+- New historyService.js: validates month format, page of 0 or more and size from 1 to 50 (400 with a clear message), converts the NUMERIC and COUNT strings from Postgres to numbers, and computes totalPages. It is separate from matchingService, which already holds the assignment lifecycle. New historyController.js and one route.
+
+### Bugs found by testing and fixes
+- No application bugs. The first test runs failed because of PowerShell, not the endpoint: a variable followed by a question mark in a URL string is read as one variable name, and a helper named h is shadowed by the built-in alias for Get-History. Test scripts should build URLs by string joining and use long helper names.
+
+### Verified
+- The summary for October matched a manual SQL query exactly (16 deliveries, total earning 408, 5 days worked, 0.6 average minutes), the list is newest first with 6 pages of 3, page 1 shows different orders and page 99 is empty with the same totals, and money and distance values are numbers.
+- Another month returns zeros and an empty list, another rider sees only his own data (zeros), and the owner and customer tokens get 403.
+- Validation returns 400 with a clear message for a bad month, a negative or non-numeric page, and a size of 0 or 1000.
+- A test delivery at 00:30 IST on 1 November (still 31 October in UTC) appears in November and not in October, which proves the month is cut in India time; it was removed afterwards.
+
+### Known limitations
+- No history page yet and no admin endpoints; the repository already accepts a null partner for the admin view.
+- Paging uses LIMIT and OFFSET, which is fine at this size. Only DELIVERED rows count, so cancelled deliveries and deliveries whose history write failed do not appear.
+- Older rows (before Sessions 54 and 55) can have an earning of 24 or no pickup time, so the average minutes ignores rows without a pickup time. The average for scripted test deliveries is only seconds.
+- Month boundaries are fixed to India time. There is no caching and no new index beyond the two existing ones. Earlier limitations from Sessions 46-56 still apply.
+
+### Next
+The history page in the frontend (month picker, summary, paged list), then the admin dashboard endpoints and page, Docker Compose, the notification service and the design pass.
+
+### Interview line
+"I built the rider history so the list and the monthly summary share one SQL filter and the month boundaries are computed in the database in India time, and I proved it with a test delivery at 00:30 IST on the first of the month that counts for November and not for October."
