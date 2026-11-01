@@ -3,6 +3,7 @@ const { authenticate, requireRole } = require('../middleware/auth');
 const partnerController = require('../controllers/partnerController');
 const offerController = require('../controllers/offerController');
 const deliveryController = require('../controllers/deliveryController');
+const historyController = require('../controllers/historyController');
 
 const router = express.Router();
 
@@ -18,5 +19,7 @@ router.post('/offers/:orderId/decline', offerController.declineOffer);
 router.post('/orders/:orderId/pickup', deliveryController.pickUp);
 router.post('/orders/:orderId/deliver', deliveryController.deliver);
 router.get('/orders/current', deliveryController.current);
+
+router.get('/history', historyController.getHistory);
 
 module.exports = router;

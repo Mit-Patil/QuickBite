@@ -68,4 +68,37 @@ async function findCurrentForPartner(partnerId, recentCancelMinutes) {
   return rows[0] || null;
 }
 
-module.exports = { createAssigned, markPickedUp, markDelivered, markCancelled, advanceOrderStatus, findCurrentForPartner };
+
+const MONTH_FILTER = `
+  d.status = 'DELIVERED'
+  AND ($1::uuid IS NULL OR d.partner_id = $1::uuid)
+  AND d.delivered_at >= make_timestamptz($2::int, $3::int, 1, 0, 0, 0, 'Asia/Kolkata')
+  AND d.delivered_at <  make_timestamptz($4::int, $5::int, 1, 0, 0, 0, 'Asia/Kolkata')`;
+
+async function summarizeDelivered(partnerId, range) {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*) AS deliveries,
+            COALESCE(SUM(d.earning), 0) AS total_earning,
+            AVG(EXTRACT(EPOCH FROM (d.delivered_at - d.picked_up_at)) / 60) AS avg_minutes,
+            COUNT(DISTINCT (d.delivered_at AT TIME ZONE 'Asia/Kolkata')::date) AS days_worked
+     FROM deliveries d
+     WHERE ${MONTH_FILTER}`,
+    [partnerId, range.startYear, range.startMonth, range.endYear, range.endMonth]
+  );
+  return rows[0];
+}
+
+async function findDelivered(partnerId, range, limit, offset) {
+  const { rows } = await pool.query(
+    `SELECT d.order_id, d.restaurant_name, d.assigned_at, d.picked_up_at, d.delivered_at,
+            d.pickup_distance_km, d.delivery_fee, d.earning
+     FROM deliveries d
+     WHERE ${MONTH_FILTER}
+     ORDER BY d.delivered_at DESC, d.order_id
+     LIMIT $6 OFFSET $7`,
+    [partnerId, range.startYear, range.startMonth, range.endYear, range.endMonth, limit, offset]
+  );
+  return rows;
+}
+
+module.exports = { createAssigned, markPickedUp, markDelivered, markCancelled, advanceOrderStatus, findCurrentForPartner, summarizeDelivered, findDelivered };
