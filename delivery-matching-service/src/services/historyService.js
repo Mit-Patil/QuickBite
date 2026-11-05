@@ -74,4 +74,13 @@ async function getHistory(partnerId, query) {
   };
 }
 
-module.exports = { getHistory };
+async function listPartners() {
+  const rows = await deliveryRepository.listPartnersWithDeliveries();
+  return rows.map((r) => ({
+    partnerId: r.partner_id,
+    deliveries: Number(r.deliveries),
+    lastDeliveredAt: r.last_delivered_at,
+  }));
+}
+
+module.exports = { getHistory, listPartners };

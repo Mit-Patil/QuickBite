@@ -9,13 +9,15 @@ const { startRetryWorker } = require('./services/retryWorker');
 const { startOfferWorker } = require('./services/offerWorker');
 const pool = require('./config/db');
 const { startSnapshotWorker } = require('./services/snapshotWorker');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
 app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(express.json());
 
 app.get('/health', (req, res) => res.json({ status: 'UP', service: 'delivery-matching-service' }));
-app.use('/api/delivery', partnerRoutes);
+app.use('/api/delivery/admin', adminRoutes);
+app.use('/api/delivery', partnerRoutes);  
 
 app.use(errorHandler); 
 

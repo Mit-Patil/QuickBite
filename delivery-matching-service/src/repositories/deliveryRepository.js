@@ -101,4 +101,16 @@ async function findDelivered(partnerId, range, limit, offset) {
   return rows;
 }
 
-module.exports = { createAssigned, markPickedUp, markDelivered, markCancelled, advanceOrderStatus, findCurrentForPartner, summarizeDelivered, findDelivered };
+async function listPartnersWithDeliveries() {
+  const { rows } = await pool.query(
+    `SELECT partner_id,
+            COUNT(*) FILTER (WHERE status = 'DELIVERED') AS deliveries,
+            MAX(delivered_at) AS last_delivered_at
+     FROM deliveries
+     GROUP BY partner_id
+     ORDER BY MAX(delivered_at) DESC NULLS LAST`
+  );
+  return rows;
+}
+
+module.exports = { createAssigned, markPickedUp, markDelivered, markCancelled, advanceOrderStatus, findCurrentForPartner, summarizeDelivered, findDelivered, listPartnersWithDeliveries };
