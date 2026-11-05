@@ -1459,3 +1459,37 @@ The history page in the frontend (month picker, summary, paged list), then the a
 
 ### Interview line
 "I built the rider history so the list and the monthly summary share one SQL filter and the month boundaries are computed in the database in India time, and I proved it with a test delivery at 00:30 IST on the first of the month that counts for November and not for October."
+
+## Session 58 — 4–5 Nov 2026: Reusable delivery history UI, admin history endpoints and admin rider-history page
+
+### Goal
+Build the delivery history screen once as a reusable component, use it for the rider and for the admin, and add the admin endpoints it needs in the delivery service.
+
+### What was built / changed
+- delivery-matching-service: GET /api/delivery/admin/history for the ADMIN role (optional partnerId, same response as the rider history) and GET /api/delivery/admin/partners (riders with a delivery row, their delivery count and last delivery). New adminRoutes is mounted before the partner routes, because the partner router applies its rider-only guard to every path under /api/delivery. adminHistoryController validates partnerId as a uuid (400), because the SQL casts it. historyService is reused (a null partner means all riders), with a new listPartners and a new listPartnersWithDeliveries query.
+- quickbite-frontend: utils/format.js gets formatMinutes, formatRupees (a dash for a missing amount), currentMonthKey (India time) and a shortPartnerId alias. deliveryService.js gets getDeliveryHistory, getAdminPartners and getAdminDeliveryHistory (axios params, undefined values are omitted).
+- New generic components/Pagination.jsx and hooks/usePagedHistory.js (month, page, loading, error and data; latest-request-wins through useRequestGuard; the newest fetch function is kept in a ref so an inline function cannot cause a reload loop; a month change resets the page; a failed load clears the data).
+- components/DeliveryHistory.jsx is the single history screen (month picker, summary, list, empty state, pager) and receives its data function as a prop, so changing the screen means changing one file. The rider page is a five-line wrapper (pages/delivery/HistoryPage.jsx with a route and nav link). The admin page (pages/admin/RiderHistoryPage.jsx) is a rider dropdown plus the same component, remounted with a key when the rider changes. New AdminLayout, an ADMIN-guarded route group in App.jsx and an ADMIN redirect in Login.jsx.
+
+### Local setup note
+The admin test account is created by hand: register a customer in the browser, then run UPDATE users SET role = 'ADMIN' WHERE email = '...' in the user database. Any new database needs the same step.
+
+### Bugs found by testing and fixes
+- When a history load failed, the previous month's numbers and the No deliveries notice stayed on screen next to the error message. The hook now clears the data on a failed load, so only the error shows; verified by stopping the service and restarting it.
+
+### Verified
+- Rider history page: an empty month shows zeros with the empty notice; October shows 16 deliveries, 408.00, 5 days and 0.6 minutes over two pages (10 and 6 rows) newest first; amounts that were never stored show a dash instead of 0.00; paging and month changes make one request each; another rider sees zeros.
+- Admin endpoints: all riders (17 deliveries and 438 with a test row), one rider equals his own history, a rider with no deliveries returns zeros, an invalid partnerId returns 400, a rider token returns 403, and the partners list returns the rider with his count (a rider token gets 403).
+- Admin page: an ADMIN login lands on the rider history page, the dropdown lists the riders, the all-riders and per-rider views match the endpoints, changing the rider goes back to page 1 and the current month, a second rider added with a test row appears and shows only his own delivery, and the rider login and rider history still work.
+
+### Known limitations
+- History shows delivered orders only; cancelled deliveries and declined or timed-out offers are not shown. Filter tabs are planned next, and declines are not stored anywhere yet (only in Redis for 40 seconds).
+- The admin dropdown shows a short id and an all-time delivery count, not names (names live in the user service).
+- ProtectedRoute redirects a wrong role to /unauthorized, which has no page, so it shows a blank screen.
+- Times are shown in the browser time zone while the month boundaries use India time. No styling yet (the design pass is at the end). The admin account is created by hand. Earlier limitations from Sessions 46-57 still apply.
+
+### Next
+A status filter on the history (Delivered by default, Cancelled, All) end to end, then an offer_outcomes table so a Declined tab and each rider's acceptance rate are possible. After that the admin dashboard (peak order times, riders online, top riders with names), Docker Compose, the notification service and the design pass.
+
+### Interview line
+"I built the delivery history as one reusable component that takes its data function as a prop, so the rider page and the admin page share the same screen: the rider page is five lines, and the admin page is a dropdown that remounts the same component with a key when the rider changes."
