@@ -28,3 +28,11 @@ export function runDeliveryAction(key, orderId) {
     default:        throw new Error(`Unknown action: ${key}`);
   }
 }
+
+export const getDeliveryHistory = ({ month, page, size }) =>
+  deliveryClient.get('/api/delivery/history', { params: { month, page, size } });
+
+export const getAdminPartners = () => deliveryClient.get('/api/delivery/admin/partners');
+
+export const getAdminDeliveryHistory = ({ partnerId, month, page, size }) =>
+  deliveryClient.get('/api/delivery/admin/history', { params: { partnerId, month, page, size } });

@@ -2,6 +2,7 @@ import AppShell from '../../components/AppShell';
 
 const LINKS = [
   { to: '/delivery', label: 'Home', icon: '🏍️', end: true },
+  { to: '/delivery/history', label: 'History', icon: '📜' },
   { to: '/delivery/profile', label: 'Profile', icon: '👤' },
 ];
 

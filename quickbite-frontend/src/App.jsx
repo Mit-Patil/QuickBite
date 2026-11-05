@@ -25,6 +25,9 @@ import OrdersPage from './pages/customer/OrdersPage';
 import RestaurantOrdersPage from './pages/restaurant-owner/OrdersPage';
 import MapTest from './pages/customer/MapTest';
 import AuthLayout from './components/AuthLayout';
+import DeliveryHistoryPage from './pages/delivery/HistoryPage';
+import AdminLayout from './pages/admin/AdminLayout';
+import RiderHistoryPage from './pages/admin/RiderHistoryPage';
 
 function App() {
   return (
@@ -64,6 +67,18 @@ function App() {
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute allowedRoles={['ADMIN']}>
+            <AdminLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="rider-history" replace />} />
+        <Route path="rider-history" element={<RiderHistoryPage />} />
+      </Route>
 
       <Route
         path = "/customer"
@@ -112,6 +127,7 @@ function App() {
       >
         <Route index element={<DeliveryHome />}/>
         <Route path='profile' element={<DeliveryProfilePage />}/>
+        <Route path='history' element={<DeliveryHistoryPage />}/>
       </Route>
 
     </Routes>

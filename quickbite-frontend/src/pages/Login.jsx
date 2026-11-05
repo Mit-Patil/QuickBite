@@ -31,6 +31,9 @@ function Login(){
             else if(user.role === 'DELIVERY_PARTNER'){
                 navigate('/delivery');
             }
+            else if(user.role === 'ADMIN'){
+                navigate('/admin');
+            }
         } catch (err) {
             setError(err.message);
         }finally{

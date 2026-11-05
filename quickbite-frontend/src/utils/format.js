@@ -22,3 +22,21 @@ export function formatTime(value) {
   const hour = Number(h);
   return `${hour % 12 || 12}:${m} ${hour >= 12 ? 'PM' : 'AM'}`;
 }
+
+export function formatMinutes(value) {
+  return value === null || value === undefined ? '–' : `${value} min`;
+}
+
+export function formatRupees(value) {
+  return value === null || value === undefined ? '–' : `₹${formatPrice(value)}`;
+}
+
+export function currentMonthKey() {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit',
+  }).formatToParts(new Date());
+  const get = (type) => parts.find((p) => p.type === type).value;
+  return `${get('year')}-${get('month')}`;
+}
+
+export const shortPartnerId = shortOrderId;
