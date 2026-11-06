@@ -4,6 +4,12 @@ const { ValidationError } = require('../errors/AppError');
 const MONTH_PATTERN = /^(\d{4})-(0[1-9]|1[0-2])$/;
 const MAX_PAGE_SIZE = 50;
 
+const STATUS_FILTERS = {
+  DELIVERED: ['DELIVERED'],
+  CANCELLED: ['CANCELLED'],
+  ALL: ['DELIVERED', 'CANCELLED'],
+};
+
 const toNumber = (value) => (value === null || value === undefined ? null : Number(value));
 
 function currentMonthIST() {
@@ -15,10 +21,15 @@ function currentMonthIST() {
   return `${year}-${month}`;
 }
 
-function parseQuery({ month, page, size }) {
+function parseQuery({ month, page, size, status }) {
   const monthText = month || currentMonthIST();
   const match = MONTH_PATTERN.exec(monthText);
   if (!match) throw new ValidationError('month must look like 2026-10');
+
+  const statusKey = status === undefined ? 'DELIVERED' : String(status).toUpperCase();
+  if (!Object.hasOwn(STATUS_FILTERS, statusKey)) {
+    throw new ValidationError('status must be DELIVERED, CANCELLED or ALL');
+  }
 
   const pageNumber = page === undefined ? 0 : Number(page);
   const pageSize = size === undefined ? 10 : Number(size);
@@ -36,27 +47,32 @@ function parseQuery({ month, page, size }) {
     : { year, month: monthNumber + 1 };
 
   return {
-    monthText, pageNumber, pageSize,
+    monthText, statusKey, pageNumber, pageSize,
     range: { startYear: year, startMonth: monthNumber, endYear: next.year, endMonth: next.month },
   };
 }
 
 async function getHistory(partnerId, query) {
-  const { monthText, pageNumber, pageSize, range } = parseQuery(query);
+  const { monthText, statusKey, pageNumber, pageSize, range } = parseQuery(query);
 
   const [summary, rows] = await Promise.all([
-    deliveryRepository.summarizeDelivered(partnerId, range),
-    deliveryRepository.findDelivered(partnerId, range, pageSize, pageNumber * pageSize),
+    deliveryRepository.summarizeMonth(partnerId, range),
+    deliveryRepository.findMonth(partnerId, range, STATUS_FILTERS[statusKey], pageSize, pageNumber * pageSize),
   ]);
 
-  const deliveries = Number(summary.deliveries);
+  const delivered = Number(summary.deliveries);
+  const cancelled = Number(summary.cancelled);
+  const tabCount = { DELIVERED: delivered, CANCELLED: cancelled, ALL: delivered + cancelled }[statusKey];
+
   return {
     month: monthText,
+    status: statusKey,
     page: pageNumber,
     size: pageSize,
-    totalPages: Math.ceil(deliveries / pageSize),
+    totalPages: Math.ceil(tabCount / pageSize),
     summary: {
-      deliveries,
+      deliveries: delivered,
+      cancelled,
       totalEarning: toNumber(summary.total_earning),
       averageMinutes: summary.avg_minutes === null ? null : Math.round(Number(summary.avg_minutes) * 10) / 10,
       daysWorked: Number(summary.days_worked),
@@ -64,9 +80,11 @@ async function getHistory(partnerId, query) {
     items: rows.map((r) => ({
       orderId: r.order_id,
       restaurantName: r.restaurant_name,
+      status: r.status,
       assignedAt: r.assigned_at,
       pickedUpAt: r.picked_up_at,
       deliveredAt: r.delivered_at,
+      cancelledAt: r.cancelled_at,
       pickupDistanceKm: toNumber(r.pickup_distance_km),
       deliveryFee: toNumber(r.delivery_fee),
       earning: toNumber(r.earning),
