@@ -28,45 +28,22 @@ import AuthLayout from './components/AuthLayout';
 import DeliveryHistoryPage from './pages/delivery/HistoryPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import RiderHistoryPage from './pages/admin/RiderHistoryPage';
+import Unauthorized from './pages/Unauthorized';
+import NotFound from './pages/NotFound';
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace/>}/>
-      
+      <Route path="/unauthorized" element={<Unauthorized />} />
+      <Route path="*" element={<NotFound />} />
+
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
         <Route path="/register/customer" element={<CustomerRegister />} />
         <Route path="/register/restaurant" element={<RestaurantOwnerRegister />} />
         <Route path="/register/delivery-partner" element={<DeliveryPartnerRegister />} />
       </Route>
-
-      <Route
-        path="/customer/*"
-        element={
-          <ProtectedRoute allowedRoles={['CUSTOMER']}>
-            <CustomerHome />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/restaurant/*"
-        element={
-          <ProtectedRoute allowedRoles={['RESTAURANT_OWNER']}>
-            <RestaurantDashboard />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route 
-        path = "/delivery/*"
-        element={
-          <ProtectedRoute allowedRoles={['DELIVERY_PARTNER']}>
-            <DeliveryHome />
-          </ProtectedRoute>
-        }
-      />
 
       <Route
         path="/admin"
@@ -78,6 +55,7 @@ function App() {
       >
         <Route index element={<Navigate to="rider-history" replace />} />
         <Route path="rider-history" element={<RiderHistoryPage />} />
+        <Route path="*" element={<NotFound />} />
       </Route>
 
       <Route
@@ -97,6 +75,7 @@ function App() {
       <Route path="orders/:orderId" element={<OrderConfirmationPage />} />
       <Route path="orders" element={<OrdersPage />} />
       <Route path="maptest" element={<MapTest />} />
+      <Route path="*" element={<NotFound />} />
       </Route>
 
       <Route 
@@ -115,6 +94,7 @@ function App() {
         <Route path=":id/menu/new" element={<MenuItemFormPage />} />
         <Route path=":id/menu/:menuItemId/edit" element={<MenuItemFormPage />} />
         <Route path=":id/orders" element={<RestaurantOrdersPage />} />
+        <Route path="*" element={<NotFound />} />
       </Route>  
 
       <Route 
@@ -128,6 +108,7 @@ function App() {
         <Route index element={<DeliveryHome />}/>
         <Route path='profile' element={<DeliveryProfilePage />}/>
         <Route path='history' element={<DeliveryHistoryPage />}/>
+        <Route path="*" element={<NotFound />} />
       </Route>
 
     </Routes>

@@ -5,7 +5,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import Input from "../components/Input";
 import styles from '../styles/AuthForm.module.css';
 import Button from "../components/Button";
-import AuthLayout from "../components/AuthLayout";
+import { homePathForRole } from '../utils/roleHome';
 
 function Login(){
     const [email,setEmail] = useState('');
@@ -23,17 +23,7 @@ function Login(){
 
         try {
             const user = await login({email, password});
-            if(user.role === 'CUSTOMER'){
-                navigate('/customer');
-            }else if(user.role === 'RESTAURANT_OWNER'){
-                navigate('/restaurant');
-            }
-            else if(user.role === 'DELIVERY_PARTNER'){
-                navigate('/delivery');
-            }
-            else if(user.role === 'ADMIN'){
-                navigate('/admin');
-            }
+            navigate(homePathForRole(user.role));
         } catch (err) {
             setError(err.message);
         }finally{

@@ -29,10 +29,10 @@ export function runDeliveryAction(key, orderId) {
   }
 }
 
-export const getDeliveryHistory = ({ month, page, size }) =>
-  deliveryClient.get('/api/delivery/history', { params: { month, page, size } });
-
 export const getAdminPartners = () => deliveryClient.get('/api/delivery/admin/partners');
 
-export const getAdminDeliveryHistory = ({ partnerId, month, page, size }) =>
-  deliveryClient.get('/api/delivery/admin/history', { params: { partnerId, month, page, size } });
+export const getDeliveryHistory = ({ month, page, size, status }) =>
+  deliveryClient.get('/api/delivery/history', { params: { month, page, size, status } });
+
+export const getAdminDeliveryHistory = ({ partnerId, month, page, size, status }) =>
+  deliveryClient.get('/api/delivery/admin/history', { params: { partnerId, month, page, size, status } });

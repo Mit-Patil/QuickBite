@@ -7,6 +7,7 @@ const DEFAULT_PAGE_SIZE = 10;
 export default function usePagedHistory(fetchHistory, { pageSize = DEFAULT_PAGE_SIZE } = {}) {
   const [month, setMonthValue] = useState(currentMonthKey);
   const [page, setPage] = useState(0);
+  const [status, setStatusValue] = useState('DELIVERED');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -21,7 +22,7 @@ export default function usePagedHistory(fetchHistory, { pageSize = DEFAULT_PAGE_
     const token = guard.start();
     setLoading(true);
     setError('');
-    fetchRef.current({ month, page, size: pageSize })
+    fetchRef.current({ month, page, size: pageSize, status })
       .then((response) => {
         if (guard.isCurrent(token)) setData(response.data);
       })
@@ -35,12 +36,17 @@ export default function usePagedHistory(fetchHistory, { pageSize = DEFAULT_PAGE_
         if (guard.isCurrent(token)) setLoading(false);
       });
     return () => guard.invalidate();
-  }, [month, page, pageSize]);
+  }, [month, page, pageSize, status]);
 
   function setMonth(value) {
     setMonthValue(value);
     setPage(0);
   }
 
-  return { month, page, data, loading, error, setMonth, setPage };
+  function setStatus(value) {
+    setStatusValue(value);
+    setPage(0);
+  }
+
+  return { month, page, status, data, loading, error, setMonth, setPage, setStatus };
 }
