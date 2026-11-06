@@ -1493,3 +1493,35 @@ A status filter on the history (Delivered by default, Cancelled, All) end to end
 
 ### Interview line
 "I built the delivery history as one reusable component that takes its data function as a prop, so the rider page and the admin page share the same screen: the rider page is five lines, and the admin page is a dropdown that remounts the same component with a key when the rider changes."
+
+
+## Session 59 — 6 Nov 2026: History status filter, not-allowed and not-found pages
+
+### Goal
+Let the delivery history show cancelled deliveries as well (Delivered, Cancelled and All tabs) for the rider and the admin, and replace blank or wrong screens for forbidden and unknown URLs with proper pages.
+
+### What was built / changed
+- delivery-matching-service: the rider and admin history endpoints take a status of DELIVERED (the default), CANCELLED or ALL, validated with a clear 400 message and looked up with Object.hasOwn so inherited property names are not accepted. A finished delivery counts in the month it was delivered or cancelled (COALESCE of delivered_at and cancelled_at). The list and the summary still share one filter (renamed summarizeMonth and findMonth). The summary is the same on every tab (delivered figures) and gains a cancelled count; totalPages follows the active tab; items now carry status and cancelledAt.
+- quickbite-frontend: usePagedHistory has a status state (a tab change goes back to page 0) and DeliveryHistory has the tab bar, with the tab list in one place (label, count and empty text). Rows are labelled through statusLabel, cancelled rows show no earning, and the API calls forward the status. The admin page needed no change.
+- New utils/roleHome.js (one role to home path map, used by Login and the new pages), a shared components/MessagePage.jsx, and the Unauthorized and NotFound pages built on it. Login uses the helper instead of an if chain.
+- App.jsx: a /unauthorized route; the three leftover /customer/*, /restaurant/* and /delivery/* routes were removed because they rendered the home page without the navigation for any unknown URL; a not-found route is the last child of each of the four layouts (customer, restaurant, delivery, admin) so the navigation stays, plus a top-level catch-all.
+
+### Bugs found by testing and fixes
+- Unknown URLs under /customer, /restaurant and /delivery showed the home page full screen without the navigation bar (the leftover splat routes), and other unknown URLs showed a blank page. Fixed as above and verified for all four roles.
+
+### Verified
+- The reference numbers came from the database: October for rider 1 has 16 delivered and 11 cancelled, so All has 27.
+- API: the default is delivered, status CANCELLED returns the cancelled rows with no delivery time or earning and the same summary, ALL returns 27 items split 16 and 11, lower-case is accepted, an unknown status returns 400, and the admin endpoint returns the same cancelled rows.
+- UI: the tabs show 16, 11 and 27, Delivered is the default and unchanged, Cancelled and All rows are labelled and newest first (3 pages for All), changing tab resets the page, an empty month shows zeros with the notice, requests carry the status, and the admin page behaves the same for all riders.
+- Pages: every role's login lands on its home; a wrong-role URL shows Not allowed with a link to that role's home (including /admin for non-admins and /customer for the admin); unknown URLs inside each layout show Page not found with the navigation intact; logged out shows Go to sign in and protected paths redirect to login; a logged-in unknown top-level URL shows the page with a link home; all existing routes still open.
+
+### Known limitations
+- Declined and timed-out offers are not stored (they live in Redis for 40 seconds), so there is no Declined tab yet.
+- The status value constructor was not run through the API. The Cancelled tab only holds deliveries cancelled after the rider accepted, and a cancelled delivery counts in the month it was cancelled, which can differ from the month it was assigned.
+- The top-level not-found and not-allowed pages have no navigation bar. No styling yet (the design pass is at the end). The admin dropdown shows short ids, and times follow the browser time zone while the months use India time. Earlier limitations from Sessions 46-58 still apply.
+
+### Next
+An offer_outcomes table in the delivery database (declined and timed-out offers) so a Declined tab and each rider's acceptance rate are possible, then the admin dashboard (peak order times, riders online, top riders with names), Docker Compose, the notification service and the design pass.
+
+### Interview line
+"I added the status filter to the history by keeping one SQL filter for the list and the summary, so the tab counts and the page counts always agree, and I fixed a routing leftover that rendered the home page without navigation for any unknown URL by giving each layout its own not-found route."
