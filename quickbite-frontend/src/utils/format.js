@@ -39,4 +39,8 @@ export function currentMonthKey() {
   return `${get('year')}-${get('month')}`;
 }
 
+export function formatPercent(value) {
+  return value === null || value === undefined ? '–' : `${value}%`;
+}
+
 export const shortPartnerId = shortOrderId;

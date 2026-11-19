@@ -1,8 +1,7 @@
 import usePagedHistory from '../hooks/usePagedHistory';
 import {
-  currentMonthKey, formatRupees, formatDateTime, formatMinutes, shortOrderId,
+  currentMonthKey, formatRupees, formatDateTime, formatMinutes, formatPercent, shortOrderId,
 } from '../utils/format';
-import { statusLabel } from '../utils/orderStatus';
 import Input from './Input';
 import Notice from './Notice';
 import ErrorMessage from './ErrorMessage';
@@ -11,8 +10,16 @@ import Pagination from './Pagination';
 const TABS = [
   { key: 'DELIVERED', label: 'Delivered', count: (s) => s.deliveries, empty: 'No deliveries in this month.' },
   { key: 'CANCELLED', label: 'Cancelled', count: (s) => s.cancelled, empty: 'No cancelled deliveries in this month.' },
-  { key: 'ALL', label: 'All', count: (s) => s.deliveries + s.cancelled, empty: 'No deliveries in this month.' },
+  { key: 'DECLINED', label: 'Declined', count: (s) => s.declined, empty: 'No declined offers in this month.' },
+  { key: 'ALL', label: 'All', count: (s) => s.deliveries + s.cancelled + s.declined, empty: 'Nothing in this month.' },
 ];
+
+const ROW_LABEL = {
+  DELIVERED: 'Delivered',
+  CANCELLED: 'Cancelled',
+  DECLINED: 'Declined',
+  TIMED_OUT: 'Missed (timed out)',
+};
 
 function DeliveryHistory({ title = 'Delivery history', fetchHistory, pageSize }) {
   const { month, page, status, data, loading, error, setMonth, setPage, setStatus } =
@@ -56,6 +63,7 @@ function DeliveryHistory({ title = 'Delivery history', fetchHistory, pageSize })
           <p>Total earning: <strong>{formatRupees(summary.totalEarning)}</strong></p>
           <p>Days worked: <strong>{summary.daysWorked}</strong></p>
           <p>Average delivery time: <strong>{formatMinutes(summary.averageMinutes)}</strong></p>
+          <p>Acceptance rate: <strong>{formatPercent(summary.acceptanceRate)}</strong></p>
         </section>
       )}
 
@@ -65,12 +73,15 @@ function DeliveryHistory({ title = 'Delivery history', fetchHistory, pageSize })
       {data && data.items.length > 0 && (
         <ul>
           {data.items.map((item) => (
-            <li key={item.orderId}>
-              <strong>{shortOrderId(item.orderId)}</strong> · {item.restaurantName} · {statusLabel(item.status, 'owner')}
+            <li key={`${item.orderId}-${item.partnerId}-${item.status}`}>
+              <strong>{shortOrderId(item.orderId)}</strong> · {item.restaurantName} · {ROW_LABEL[item.status] ?? item.status}
               <br />
-              {formatDateTime(item.deliveredAt ?? item.cancelledAt)}
+              {formatDateTime(item.eventAt)}
               {item.status === 'DELIVERED' && (
                 <> · earned {formatRupees(item.earning)} · delivery fee {formatRupees(item.deliveryFee)}</>
+              )}
+              {(item.status === 'DECLINED' || item.status === 'TIMED_OUT') && item.pickupDistanceKm !== null && (
+                <> · {item.pickupDistanceKm} km away</>
               )}
             </li>
           ))}
