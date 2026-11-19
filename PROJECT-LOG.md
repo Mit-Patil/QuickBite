@@ -1525,3 +1525,37 @@ An offer_outcomes table in the delivery database (declined and timed-out offers)
 
 ### Interview line
 "I added the status filter to the history by keeping one SQL filter for the list and the summary, so the tab counts and the page counts always agree, and I fixed a routing leftover that rendered the home page without navigation for any unknown URL by giving each layout its own not-found route."
+
+## Session 60 — 18–19 Nov 2026: Offer outcomes, Declined tab and acceptance rate
+
+### Goal
+Store what happens to every offer a rider receives, so the history can show declined and missed offers and each rider gets an acceptance rate. This finishes the delivery-matching-service for now.
+
+### What was built / changed
+- quickbite_delivery: new table offer_outcomes (order, rider, outcome ACCEPTED, DECLINED or TIMED_OUT, restaurant name, distance, resolved time) with UNIQUE (order_id, partner_id), applied by hand. A rider is never offered the same order twice, so the pair is unique and the insert is safe to repeat.
+- matchingService: a recordOutcome helper, going through the same recordHistory wrapper that never blocks the rider, is called in acceptOffer, declineOffer and expireOffer; deliveryRepository.recordOutcome uses ON CONFLICT DO NOTHING. An offer cancelled together with its order is not recorded, because it is not the rider's choice and must not lower his acceptance rate.
+- History query: one CTE (events) unions the finished deliveries and the declined or timed-out offers into one row shape, so one month filter, one ordering and one pager serve every tab. The summary gains a declined count and acceptanceRate (accepted offers divided by offers recorded in the month, one decimal, null when none). Items carry partnerId, status (DELIVERED, CANCELLED, DECLINED, TIMED_OUT) and eventAt. The status filter now accepts DELIVERED (default), CANCELLED, DECLINED (declined plus timed out) and ALL.
+- Frontend: DeliveryHistory has a Declined tab and counts for all four tabs; rows are labelled Declined or Missed (timed out) with the distance; the summary shows the acceptance rate (new formatPercent helper); the row key includes order, rider and status, because in the admin all-riders view the same order can appear more than once.
+
+### Local setup note
+Run the offer_outcomes CREATE TABLE from the schema file on quickbite_delivery. The project was restored on a spare laptop from the zip backup and a Docker database backup after a hardware fault; the Java services now run from VS Code or Maven, and every host in the .env files uses 127.0.0.1.
+
+### Bugs found by testing and fixes
+- No application bugs found in this session.
+
+### Verified
+- A decline, a timeout and an accept each wrote one row (DECLINED, TIMED_OUT, ACCEPTED, with restaurant name and distance).
+- A repeated decline returns 409, an accept after a decline returns 409, the table keeps one DECLINED row for the order and rider, and a direct duplicate insert reports INSERT 0 0.
+- October is unchanged (16 delivered, 11 cancelled, total earning 408, acceptance rate null). November shows declined 2 and acceptance rate 33.3 (one accepted out of three offers). An invalid status, including constructor, returns 400, and the admin endpoint returns the same declined rows.
+- UI: the tabs read Delivered, Cancelled, Declined and All with counts, the Declined tab lists the declined and missed offers newest first with the distance and no earning, All mixes all kinds with a consistent page count, October is unchanged with a dash for the rate, and the admin page behaves the same with no duplicate-key warning.
+
+### Known limitations
+- The acceptance rate only exists from the day the table was created; earlier months show a dash. Timed-out offers count as not accepted.
+- The admin all-riders list does not show which rider a row belongs to (partnerId is in the response).
+- The Cancelled tab only holds deliveries cancelled after the rider accepted. No styling yet. Earlier limitations from Sessions 46-59 still apply.
+
+### Next
+The notification service with WebSocket (status pushes for the customer and restaurant pages, rider offers), the admin dashboard (peak order times, riders online, top riders with names), Docker Compose, the design pass, and the README with the demo script.
+
+### Interview line
+"I stored every offer outcome in its own table and merged it with the delivery history through a single SQL CTE, so one filter, one sort and one pager serve the Delivered, Cancelled and Declined tabs, and the rider's acceptance rate comes from the same data."
