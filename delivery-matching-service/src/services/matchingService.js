@@ -33,6 +33,16 @@ async function recordHistory(orderId, action) {
   }
 }
 
+function recordOutcome(orderId, partnerId, outcome, offer) {
+  return recordHistory(orderId, () => deliveryRepository.recordOutcome({
+    orderId,
+    partnerId,
+    outcome,
+    restaurantName: offer.restaurantName,
+    distanceKm: offer.distanceKm,
+  }));
+}
+
 async function giveUp(orderId, attempts) {
   await retryQueue.remove(orderId);
   await offerStore.clear(orderId);
@@ -133,6 +143,7 @@ async function acceptOffer(orderId, partnerId) {
     restaurantName: offer.restaurantName,
     pickupDistanceKm: offer.distanceKm,
   }));
+  await recordOutcome(orderId, partnerId, 'ACCEPTED', offer);
   publishEvent('DELIVERY_ASSIGNED', orderId, { partnerId, distanceKm: offer.distanceKm });
   console.log(`Order ${orderId} -> partner ${partnerId} (offer accepted)`);
 }
@@ -140,6 +151,8 @@ async function acceptOffer(orderId, partnerId) {
 async function declineOffer(orderId, partnerId) {
   const offer = await offerStore.takeOffer(orderId, partnerId);
   if (!offer) throw new ConflictError('Offer expired, was already handled, or is not yours');
+
+  await recordOutcome(orderId, partnerId, 'DECLINED', offer);
 
   await locationService.releasePartner(partnerId, orderId);
   console.log(`Partner ${partnerId} declined order ${orderId}`);
@@ -151,6 +164,7 @@ async function declineOffer(orderId, partnerId) {
 async function expireOffer(orderId) {
   const offer = await offerStore.takeOffer(orderId);
   if (!offer) return; 
+  await recordOutcome(orderId, offer.partnerId, 'TIMED_OUT', offer);
 
   await locationService.releasePartner(offer.partnerId, orderId);
   console.log(`Offer for order ${orderId} to partner ${offer.partnerId} timed out`);

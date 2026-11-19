@@ -7,7 +7,8 @@ const MAX_PAGE_SIZE = 50;
 const STATUS_FILTERS = {
   DELIVERED: ['DELIVERED'],
   CANCELLED: ['CANCELLED'],
-  ALL: ['DELIVERED', 'CANCELLED'],
+  DECLINED: ['DECLINED', 'TIMED_OUT'],
+  ALL: ['DELIVERED', 'CANCELLED', 'DECLINED', 'TIMED_OUT'],
 };
 
 const toNumber = (value) => (value === null || value === undefined ? null : Number(value));
@@ -28,7 +29,7 @@ function parseQuery({ month, page, size, status }) {
 
   const statusKey = status === undefined ? 'DELIVERED' : String(status).toUpperCase();
   if (!Object.hasOwn(STATUS_FILTERS, statusKey)) {
-    throw new ValidationError('status must be DELIVERED, CANCELLED or ALL');
+    throw new ValidationError('status must be DELIVERED, CANCELLED, DECLINED or ALL');
   }
 
   const pageNumber = page === undefined ? 0 : Number(page);
@@ -55,14 +56,17 @@ function parseQuery({ month, page, size, status }) {
 async function getHistory(partnerId, query) {
   const { monthText, statusKey, pageNumber, pageSize, range } = parseQuery(query);
 
-  const [summary, rows] = await Promise.all([
+  const [summary, rows, acceptance] = await Promise.all([
     deliveryRepository.summarizeMonth(partnerId, range),
     deliveryRepository.findMonth(partnerId, range, STATUS_FILTERS[statusKey], pageSize, pageNumber * pageSize),
+    deliveryRepository.acceptanceStats(partnerId, range),
   ]);
 
   const delivered = Number(summary.deliveries);
   const cancelled = Number(summary.cancelled);
-  const tabCount = { DELIVERED: delivered, CANCELLED: cancelled, ALL: delivered + cancelled }[statusKey];
+  const declined = Number(summary.declined);
+  const offers = Number(acceptance.offers);
+  const tabCount = { DELIVERED: delivered, CANCELLED: cancelled, DECLINED: declined, ALL: delivered + cancelled + declined }[statusKey];
 
   return {
     month: monthText,
@@ -73,14 +77,18 @@ async function getHistory(partnerId, query) {
     summary: {
       deliveries: delivered,
       cancelled,
+      declined,
       totalEarning: toNumber(summary.total_earning),
       averageMinutes: summary.avg_minutes === null ? null : Math.round(Number(summary.avg_minutes) * 10) / 10,
       daysWorked: Number(summary.days_worked),
+      acceptanceRate: offers === 0 ? null : Math.round((Number(acceptance.accepted) / offers) * 1000) / 10,
     },
     items: rows.map((r) => ({
+      partnerId: r.partner_id,
       orderId: r.order_id,
       restaurantName: r.restaurant_name,
       status: r.status,
+      eventAt: r.event_at,
       assignedAt: r.assigned_at,
       pickedUpAt: r.picked_up_at,
       deliveredAt: r.delivered_at,
