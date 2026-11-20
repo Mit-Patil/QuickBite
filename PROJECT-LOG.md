@@ -1559,3 +1559,42 @@ The notification service with WebSocket (status pushes for the customer and rest
 
 ### Interview line
 "I stored every offer outcome in its own table and merged it with the delivery history through a single SQL CTE, so one filter, one sort and one pager serve the Delivered, Cancelled and Declined tabs, and the rider's acceptance rate comes from the same data."
+
+## Session 61 — 19–20 Nov 2026: Notification service skeleton (Kafka consumer and authenticated WebSocket)
+
+### Goal
+Start the notification service as a new, self-contained Node service that listens to the order and delivery events and accepts authenticated WebSocket connections. This is the base for status nudges, rider offers and live rider tracking in the next sessions.
+
+### What was built / changed
+- New notification-service (Node, Express, ws, kafkajs, jsonwebtoken, dotenv) on port 8085. Config in config/env.js with required() for JWT_SECRET, kafkaClient and AppError copied from the delivery service conventions; no producer, database or Redis, because this service only consumes.
+- Kafka consumer: its own group (notification-service-consumers) so it receives every event instead of splitting them with the delivery service, reads order-events and delivery-events with fromBeginning false (no replay of old events after a restart), a handlers map by eventType, and a try/catch per message so one bad event never stops the consumer. The notifier is a placeholder that only logs; routing comes next.
+- WebSocket server on /ws sharing the HTTP server with Express. The client authenticates with a first message {type:'auth', token} (a token in the URL would end up in logs, and browsers cannot set headers on a WebSocket); no auth within 5 seconds closes the socket (4401), a non-auth first message closes with 4401, invalid JSON with 4400, and an Origin outside ALLOWED_ORIGINS with 1008, because WebSockets ignore CORS. verifyToken is its own helper.
+- hub.js keeps one Map of channel to a Set of sockets. The personal channel comes from the verified token (customer:<sub> and partner:<sub>), never from what the client sends; owners and other roles get none yet. A 30 s ping drops dead sockets (laptop sleep, Wi-Fi drop).
+- GET /health returns the live connection count.
+- Graceful shutdown on SIGINT and SIGTERM: sockets close with 1001, the consumer disconnects so it leaves the Kafka group, and a 5 s timer stops it from hanging.
+- .gitignore (node_modules, .env) and .env.example with placeholder values.
+
+### Bugs found by testing and fixes
+- The first shutdown version logged "stopConsumer is not defined": app.js did not import it, so the consumer never left the group and the next start waited about 24 s to join. Fixed the import; after the fix the consumer logs Stopped and rejoins in about 3 s.
+- A TimeoutNegativeWarning appears at startup. --trace-warnings shows it comes from kafkajs requestQueue (the value is minus the current time in milliseconds), not from our code; Node clamps it to 1 ms and nothing breaks, so it is left as is.
+
+### Verified
+- Kafka: a no-partner order logged NO_PARTNER_AVAILABLE, NO_PARTNER_FOUND and ORDER_CANCELLED; an accepted order logged ORDER_CONFIRMED, ORDER_ACCEPTED, NO_PARTNER_AVAILABLE, DELIVERY_ASSIGNED and four STATUS_CHANGED events.
+- WebSocket with wscat: a customer token and a rider token both get {"type":"ready"}; a bad token, a 5 s silence and a first message that is not auth close with 4401; non-JSON closes with 4400; an evil.com Origin closes with 1008; an authenticated message after ready is ignored for now.
+- /health shows 2 connections with two sockets open, then 1, then 0, so close cleans up the hub.
+- Kafka stopped: the service retries and exits with "Startup failed"; after Kafka restarts it starts normally.
+- Routing keys: the customerId in ORDER_CONFIRMED and ORDER_ACCEPTED equals the customer token's sub, and the rider token's sub equals the partnerId in DELIVERY_ASSIGNED, so customer:<sub> and partner:<sub> will match the events.
+- Shutdown: Ctrl+C closes the client with 1001, logs Stopped for the consumer, and the next start joins the group in about 3 s. git add -n lists 13 files with no .env and no node_modules.
+
+### Known limitations
+- The notifier only logs; no event is pushed to a socket yet, and the socket only understands auth (no track or watch messages).
+- A socket stays authorized after its token expires. Notifications are not stored, so anything sent while a client is offline is lost (the frontend will refetch on reconnect and keep a slow poll).
+- One instance only: sockets live in memory, so several instances would each need their own consumer group.
+- DELIVERY_ASSIGNED carries only orderId, partnerId and distanceKm, so it needs customerId and restaurantId added in the delivery service before it can be routed.
+- The harmless kafkajs TimeoutNegativeWarning remains. .env.example exists only in this service. No frontend, tests or Dockerfile yet.
+
+### Next
+Coordinates in orders (a delivery latitude and longitude snapshot at placement and restaurant and delivery coordinates in the order response) together with a distance-based delivery fee and GST. Then the rider location pipeline, the tracking map on the customer order page, status nudges with a useLiveRefresh hook, rider offer push, and pagination on the long orders lists if time is left.
+
+### Interview line
+"I built the notification service as its own Kafka consumer group with WebSocket authentication on the first message instead of in the URL, so every event reaches it, tokens stay out of logs, and the channel a user can listen on comes from the verified token and never from the client."
