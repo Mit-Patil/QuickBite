@@ -1598,3 +1598,39 @@ Coordinates in orders (a delivery latitude and longitude snapshot at placement a
 
 ### Interview line
 "I built the notification service as its own Kafka consumer group with WebSocket authentication on the first message instead of in the URL, so every event reaches it, tokens stay out of logs, and the channel a user can listen on comes from the verified token and never from the client."
+
+## Session 62 — 21 Nov 2026: Distance-based delivery fee, stored delivery coordinates and delivery quote
+
+### Goal
+Replace the flat delivery fee with a fee based on the distance between the restaurant and the customer's address, store the delivery point on every order, and show the real fee on the checkout page before the order is placed. The stored coordinates are also the base for the rider tracking map.
+
+### What was built / changed
+- quickbite_orders: orders gets delivery_latitude, delivery_longitude and delivery_distance_km, all nullable so old orders stay valid; applied by hand and added to the schema file.
+- restaurant-order-service: GeoUtils (haversine distance) and DeliveryFeePolicy (plain classes with no Spring, BigDecimal money). The rule is fee = min(base + max(0, km - included km) x per km, cap), rounded to 2 decimals. Settings in application.yml (order.delivery: base-fee 20, included-km 2, per-km 8, max-fee 80) replace the old flat order.delivery-fee, and DeliveryFeeConfig builds the policy from them, so the class stays unit-testable.
+- The address coordinates come from user-service: a UserAddressClient calls the customer's address list with the customer's own token and picks the chosen address, so ownership is enforced there and nothing is trusted from the browser. A second RestClient bean (userRestClient, 3 s connect and 5 s read timeouts) was added and the payment client is marked @Primary so the existing injection keeps working.
+- OrderService has one private quoteDelivery method (restaurant point, address lookup, distance rounded to 2 decimals, fee from the rounded distance) used by both placeOrder and getDeliveryQuote. It runs before any write, so a failed lookup stops the order before stock is touched. The order stores the coordinates, the distance and the fee, and the total includes the fee.
+- New GET /api/orders/delivery-quote?addressId= returns distanceKm and deliveryFee (DeliveryQuoteResponse); the coordinates stay inside the service.
+- quickbite-frontend: getDeliveryQuote in orderService.js and a useDeliveryQuote hook that uses useRequestGuard, so the last selected address always wins. CheckoutPage shows the real fee and distance for the selected address, the total follows it, Place Order is disabled until a quote exists, and an address without a pin shows the warning and sends no request. The fixed fee of 30 was removed.
+
+### Bugs found by testing and fixes
+- The checkout summary kept showing the fixed fee of 30 and total after changing the address, because the fee was a frontend constant; fixed with the quote endpoint.
+- The red error banner stayed after the customer picked another address; it is now cleared when the address changes.
+
+### Verified
+- Unit tests: 7 tests pass (zero distance, one degree of latitude and longitude, and fees at 0.4, 2, 2.01, 3.5, 7.25 and 10 km including the cap).
+- Orders to test addresses: 0.56 km gives fee 20.00 and total 104.00, 5.00 km gives 44.00 and 128.00, 10.01 km gives 80.00 (the formula gives 84.08, so the cap applies) and 164.00. The stored distance equals an independent SQL haversine check on every row, and total equals subtotal plus tax plus fee.
+- Errors: an address without a pin returns 400 with a clear message, an unknown address id returns 400 "Delivery address not found", a malformed id returns a 400 JSON error, and with user-service stopped the order returns 409 "Could not verify the delivery address right now"; the next order works, so the cart is not left stuck. Old orders keep their fee of 30 and empty coordinates.
+- Quote endpoint with curl: 9.72 km gives 80.00, 5.00 km gives 44.00, and the same three error cases.
+- UI: the default address (0.49 km) shows 20, and the near, 5 km and 10 km addresses show 20, 44 and 80 with the km next to the fee and a matching total; the no-pin address shows dashes, a disabled button and no request; switching addresses quickly always ends on the last choice; with user-service stopped the warning shows and the button is disabled, and it recovers after a restart; an order placed from the 5 km address shows fee 44 and total 128, equal to the preview. The rider history shows the new fees (20 and 80).
+
+### Known limitations
+- The distance is a straight line (haversine), not road distance. GST is still one flat rate and the tax rate is still a constant (0.05) in the frontend checkout, while the backend reads order.tax-rate, so changing the tax means changing both places.
+- user-service has no endpoint for one address, so the whole address list is read; a user-service outage returns 409 instead of 503. Old addresses without a pin cannot be used until they are re-pinned, and old orders have no coordinates.
+- The owner orders page still shows the total including the delivery fee. The coordinates are not in OrderResponse yet. The rider earning is fee x RIDER_SHARE_PERCENT, which is 100 in the delivery service .env (default 80 in env.js), so earning equals the fee for now.
+- Test addresses named "TEST ..." remain in the dev database. Earlier limitations from Sessions 46-61 still apply.
+
+### Next
+The rider location pipeline: the delivery service publishes the rider's point to a rider-locations topic while a delivery is active, the notification service keeps the latest point per order, and a track message with an ownership check pushes it over WebSocket. After that come the coordinates in the order response, the tracking map, a trip simulator, status nudges and rider offer push.
+
+### Interview line
+"I moved the delivery fee from a flat number to a distance-based rule in one backend method used by both the checkout preview and the placed order, so they can never disagree, and the address coordinates come from user-service with the customer's own token instead of from the browser."
