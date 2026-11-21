@@ -9,9 +9,15 @@ import Button from '../../components/Button';
 import ErrorMessage from '../../components/ErrorMessage';
 import Notice from '../../components/Notice';
 import styles from './CheckoutPage.module.css';
+import useDeliveryQuote from '../../hooks/useDeliveryQuote';
 
 const TAX_RATE = 0.05;
-const DELIVERY_FEE = 30;
+
+function amountLabel(quoting, amount) {
+  if (quoting) return 'Calculating...';
+  if (amount == null) return '—';
+  return `₹${formatPrice(amount)}`;
+}
 
 const PAYMENT_HINTS = {
   COD: 'Pay in cash when your order arrives.',
@@ -30,6 +36,10 @@ function CheckoutPage() {
   const [placing, setPlacing] = useState(false);
 
   const navigate = useNavigate();
+
+  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
+  const canQuote = Boolean(cart?.items?.length) && selectedAddress?.latitude != null;
+  const { quote, loading: quoting, error: quoteError } = useDeliveryQuote(selectedAddressId, canQuote);
 
   useEffect(() => {
     loadData();
@@ -57,6 +67,7 @@ function CheckoutPage() {
   }
 
   async function handlePlaceOrder() {
+    if (!quote) return;
     setError('');
     if (!selectedAddressId) {
       setError('Please select a delivery address');
@@ -94,10 +105,12 @@ function CheckoutPage() {
     );
   }
 
-  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
   const subtotal = Number(cart.subtotal);
   const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
-  const total = subtotal + taxAmount + DELIVERY_FEE;
+  const deliveryFee = quote ? Number(quote.deliveryFee) : null;
+  const total = deliveryFee == null ? null : subtotal + taxAmount + deliveryFee;
+  const canPlace = quote != null && !quoting;
+  const distanceText = quote ? ` (${quote.distanceKm} km)` : '';
 
   return (
     <div>
@@ -128,7 +141,7 @@ function CheckoutPage() {
                   label="Deliver to"
                   name="address"
                   value={selectedAddressId}
-                  onChange={(e) => setSelectedAddressId(e.target.value)}
+                  onChange={(e) => { setSelectedAddressId(e.target.value); setError(''); }}
                   options={addresses.map((a) => ({
                     value: a.id,
                     label: `${a.addressLine}, ${a.city} - ${a.pincode}${a.isDefault ? ' (default)' : ''}`,
@@ -140,6 +153,7 @@ function CheckoutPage() {
                     Edit it under Addresses to add a pin.
                   </Notice>
                 )}
+                {quoteError && <Notice variant="warning">{quoteError}</Notice>}
                 <Link to="/customer/addresses" className={styles.manage}>Manage addresses</Link>
               </>
             )}
@@ -180,11 +194,11 @@ function CheckoutPage() {
 
           <div className={styles.row}><span>Subtotal</span><span>₹{formatPrice(subtotal)}</span></div>
           <div className={styles.row}><span>Taxes ({Math.round(TAX_RATE * 100)}%)</span><span>₹{formatPrice(taxAmount)}</span></div>
-          <div className={styles.row}><span>Delivery fee</span><span>₹{formatPrice(DELIVERY_FEE)}</span></div>
-          <div className={styles.total}><span>Total</span><span>₹{formatPrice(total)}</span></div>
+          <div className={styles.row}><span>Delivery fee{distanceText}</span><span>{amountLabel(quoting, deliveryFee)}</span></div>
+          <div className={styles.total}><span>Total</span><span>{amountLabel(quoting, total)}</span></div>
           <p className={styles.note}>Final amounts are confirmed when the order is placed.</p>
 
-          <Button loading={placing} loadingText="Placing order..." type="button" onClick={handlePlaceOrder}>
+          <Button loading={placing} loadingText="Placing order..." type="button" onClick={handlePlaceOrder} disabled={!canPlace}>
             Place Order
           </Button>
           <Link to="/customer/cart" className={styles.backLink}>Edit cart</Link>

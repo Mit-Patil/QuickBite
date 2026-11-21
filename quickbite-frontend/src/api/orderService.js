@@ -40,3 +40,7 @@ export function runOwnerAction(key, orderId, reason) {
     default:        throw new Error(`Unknown action: ${key}`);
   }
 }
+
+export function getDeliveryQuote(addressId) {
+  return orderClient.get('/api/orders/delivery-quote', { params: { addressId } });
+}
