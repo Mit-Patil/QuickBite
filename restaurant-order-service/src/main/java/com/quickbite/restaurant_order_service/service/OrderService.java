@@ -18,6 +18,9 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
+import com.quickbite.restaurant_order_service.client.UserAddressClient;
+import com.quickbite.restaurant_order_service.util.DeliveryFeePolicy;
+import com.quickbite.restaurant_order_service.util.GeoUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -34,12 +37,11 @@ public class OrderService {
     private final RestClient paymentServiceClient;
     private final OrderEventPublisher orderEventPublisher;
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
-    
+    private final UserAddressClient userAddressClient;
+    private final DeliveryFeePolicy deliveryFeePolicy;
+
     @Value("${order.tax-rate:0.05}")
     private BigDecimal taxRate;
-
-    @Value("${order.delivery-fee:30.00}")
-    private BigDecimal deliveryFee;
     
     @Value("${internal.service-secret}")
     private String internalServiceSecret;
@@ -74,6 +76,10 @@ public class OrderService {
             }
         }
 
+        // Step 1.2 (NEW): delivery point, distance and fee, all before any write
+        Quote quote = quoteDelivery(cart.getRestaurant(), authToken, request.getDeliveryAddressId());
+        BigDecimal fee = quote.fee();
+
         // Step 1.5 (NEW): pre-fetch ALL addon links for ALL cart items, before any writes happen
         java.util.Map<UUID, List<CartItemAddon>> addonsByCartItemId = new java.util.HashMap<>();
         for (CartItem cartItem : cartItems) {
@@ -88,7 +94,10 @@ public class OrderService {
                 .status(OrderStatus.PENDING)
                 .subtotal(BigDecimal.ZERO)
                 .taxAmount(BigDecimal.ZERO)
-                .deliveryFee(deliveryFee)
+                .deliveryFee(fee)
+                .deliveryLatitude(quote.latitude())
+                .deliveryLongitude(quote.longitude())
+                .deliveryDistanceKm(quote.distanceKm())
                 .totalAmount(BigDecimal.ZERO)
                 .build();
         order = orderRepository.save(order);
@@ -141,7 +150,7 @@ public class OrderService {
 
         // Step 4: finalize totals + status
         BigDecimal taxAmount = subtotal.multiply(taxRate).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryFee).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalAmount = subtotal.add(taxAmount).add(fee).setScale(2, RoundingMode.HALF_UP);
 
         order.setSubtotal(subtotal);
         order.setTaxAmount(taxAmount);
@@ -266,6 +275,30 @@ public class OrderService {
                 menuItemRepository.save(menuItem);
             }
         }
+    }
+
+    private record Quote(BigDecimal distanceKm, BigDecimal fee, Double latitude, Double longitude) {}
+
+    private Quote quoteDelivery(Restaurant restaurant, String authToken, UUID addressId) {
+        if (restaurant.getLatitude() == null || restaurant.getLongitude() == null) {
+            throw new IllegalStateException("This restaurant has no map location yet");
+        }
+        AddressInfo address = userAddressClient.getAddress(authToken, addressId);
+        if (address.latitude() == null || address.longitude() == null) {
+            throw new IllegalArgumentException("This address has no map location, please edit it and pin it on the map");
+        }
+        BigDecimal distanceKm = BigDecimal.valueOf(GeoUtils.distanceKm(
+                restaurant.getLatitude(), restaurant.getLongitude(),
+                address.latitude(), address.longitude())).setScale(2, RoundingMode.HALF_UP);
+        return new Quote(distanceKm, deliveryFeePolicy.feeFor(distanceKm), address.latitude(), address.longitude());
+    }
+
+    @Transactional(readOnly = true)
+    public DeliveryQuoteResponse getDeliveryQuote(UUID customerId, String authToken, UUID addressId) {
+        Cart cart = cartRepository.findByCustomerId(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Cart is empty"));
+        Quote quote = quoteDelivery(cart.getRestaurant(), authToken, addressId);
+        return new DeliveryQuoteResponse(quote.distanceKm(), quote.fee());
     }
 
     public List<OrderResponse> getMyOrders(UUID customerId) {

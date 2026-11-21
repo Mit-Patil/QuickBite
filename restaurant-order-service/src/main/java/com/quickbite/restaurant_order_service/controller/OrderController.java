@@ -34,6 +34,13 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getMyOrders(customerId));
     }
 
+    @GetMapping("/delivery-quote")
+    public ResponseEntity<DeliveryQuoteResponse> deliveryQuote(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam UUID addressId) {
+        return ResponseEntity.ok(orderService.getDeliveryQuote(getCurrentUserId(), authHeader, addressId));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<OrderResponse> getById(@PathVariable UUID id) {
         UUID customerId = getCurrentUserId();

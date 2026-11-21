@@ -50,6 +50,15 @@ public class Order {
     @Column(name = "delivery_partner_id")
     private UUID deliveryPartnerId;
 
+    @Column(name = "delivery_latitude")
+    private Double deliveryLatitude;
+
+    @Column(name = "delivery_longitude")
+    private Double deliveryLongitude;
+
+    @Column(name = "delivery_distance_km", precision = 6, scale = 2)
+    private BigDecimal deliveryDistanceKm;
+
     @Column(name = "placed_at", nullable = false, updatable = false)
     @Builder.Default
     private LocalDateTime placedAt = LocalDateTime.now();
