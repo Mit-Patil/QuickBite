@@ -298,7 +298,7 @@ public class OrderService {
         Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Cart is empty"));
         Quote quote = quoteDelivery(cart.getRestaurant(), authToken, addressId);
-        return new DeliveryQuoteResponse(quote.distanceKm(), quote.fee());
+        return new DeliveryQuoteResponse(quote.distanceKm(), quote.fee(), taxRate);
     }
 
     public List<OrderResponse> getMyOrders(UUID customerId) {
