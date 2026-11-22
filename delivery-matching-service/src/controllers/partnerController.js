@@ -1,8 +1,10 @@
 const locationService = require('../services/locationService');
+const trackingService = require('../services/trackingService');
 
 async function reportLocation(req, res) {
   const { lat, lng } = req.body;
   const result = await locationService.reportLocation(req.userId, lat, lng);
+  trackingService.publishLocation(req.userId, lat, lng);
   res.json(result);
 }
 

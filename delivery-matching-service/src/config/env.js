@@ -18,6 +18,7 @@ module.exports = {
   databaseUrl: required('DATABASE_URL'),
   orderEventsTopic: 'order-events',
   deliveryEventsTopic: 'delivery-events',
+  riderLocationsTopic: 'rider-locations',
   consumerGroupId: 'delivery-matching-service-consumers',
   retryDelaySeconds: 15,
   retryTickMs: 5000,
