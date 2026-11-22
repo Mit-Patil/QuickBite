@@ -1634,3 +1634,38 @@ The rider location pipeline: the delivery service publishes the rider's point to
 
 ### Interview line
 "I moved the delivery fee from a flat number to a distance-based rule in one backend method used by both the checkout preview and the placed order, so they can never disagree, and the address coordinates come from user-service with the customer's own token instead of from the browser."
+
+## Session 63 — 22 Nov 2026: Tax rate from the backend and the live rider location pipeline
+
+### Goal
+Remove the last fixed number from the checkout (the tax rate) and build the pipeline that carries the rider's live position from the delivery service to the customer's WebSocket, with an ownership check. This is the base for the tracking map.
+
+### What was built / changed
+- restaurant-order-service: DeliveryQuoteResponse gets taxRate, filled from order.tax-rate. quickbite-frontend: CheckoutPage no longer has a tax constant; the rate, the tax amount and the total all come from the quote and show a dash when no quote exists.
+- delivery-matching-service: new trackingService. reportLocation calls publishLocation after a successful update without awaiting it, and it never throws, so tracking cannot slow or break the rider. The Redis busy key is the cheap filter for idle riders, then findCurrentForPartner(partnerId, 0) gives the active delivery. It publishes RIDER_LOCATION (orderId, lat, lng, phase, occurredAt) to the new rider-locations topic keyed by orderId, with phase TO_RESTAURANT while ASSIGNED and TO_CUSTOMER once PICKED_UP. The event has no rider id.
+- notification-service: consumes rider-locations as a third topic. locationStore keeps the newest point per order ordered by the rider's timestamp and ignores older, duplicate or too old (over 5 minutes) points, with a sweep for finished orders. The notifier routes RIDER_LOCATION to the order's channel and, on DELIVERED or CANCELLED, sends tracking-ended and drops the channel. The consumer fails at startup if one of its own event types has no handler function.
+- WebSocket track message: customers only, UUID check, and ownership verified by calling order-service GET /api/orders/{id} with the customer's own token (orderAccess, 3 s timeout), so the ownership rule stays in one place. The reply is tracking, then the last known point at once, then live location messages. Errors are NOT_FOUND (not yours or unknown), FORBIDDEN, NOT_TRACKABLE (finished orders), UNAVAILABLE (order-service down) and TOO_MANY (10 channels per socket). A guard stops a socket that closed during the lookup from leaking into the hub.
+- ORDER_SERVICE_URL is a required setting (also in .env.example), ServiceUnavailableError was added, and the service has its first automated tests (node:test, npm test).
+
+### Bugs found by testing and fixes
+- After the first run of the track message no location reached the socket: the consumer did not route RIDER_LOCATION to the notifier, and the check that skips unknown event types hid it silently. Routing was corrected, and a startup check now throws when one of our own event types has no handler function.
+- A Kafka freeze test showed points sent during the freeze arriving late, and a consumer rejoin replaying older points (position 72.8 after 73.4). The store now ignores any point not newer than the stored one, covered by unit tests.
+- Rider updates slowed to about once a minute while the rider page tab was in the background. This is browser timer throttling, not our code; the rider page has to stay in a visible window.
+
+### Verified
+- Unit tests: 4 pass (newest point wins, an older point and a duplicate are ignored, a point over 5 minutes old is ignored, clear removes the point).
+- Tax: the 5% preview shows 4.00 and total 104; with the rate temporarily at 10% the preview and the placed order show 8.00 and 108, the order keeps 8.00 after the rate is set back to 5%, the next preview shows 4.00 again, and an address without a pin shows dashes. application.yml is back at 0.05.
+- Publisher (Kafka UI): an idle online rider publishes nothing for 5 minutes; an accepted delivery publishes about every 10 s with the right order id and TO_RESTAURANT, then TO_CUSTOMER after pickup; the coordinates follow the rider page; points stop after Delivered and after a cancel and none are sent during an offer; invalid coordinates return 400 and publish nothing; with Kafka paused the points were buffered and arrived after unpause, and both consumers rejoined their groups without a restart.
+- WebSocket (wscat): the customer gets tracking, the last point at once and a location about every 10 s with the phase change at pickup; another customer gets NOT_FOUND, the owner and the rider get FORBIDDEN, a malformed or unknown id gets NOT_FOUND; tracking the same order twice on one socket answers both with no duplicate points; two windows both receive tracking-ended on Delivered; an auto-cancelled order sends tracking-ended and gives NOT_TRACKABLE afterwards; a new socket gets UNAVAILABLE while order-service is stopped and tracking works again after the restart; closing a socket lowers the connection count by one; an idle authenticated window stayed connected for about six minutes.
+
+### Known limitations
+- A socket stays authorized after its token expires, because the ownership check runs once when tracking starts.
+- The last points are in memory, so a notification-service restart forgets them until the next point (about 10 s); single instance only.
+- Only customers can track; the restaurant owner map is not built. The rider page still reports every 10 s (4 s during an active delivery is planned), and a hidden browser tab is throttled to about one report a minute.
+- There is no tracking map or frontend socket client yet, and the order response has no coordinates yet. The kafkajs TimeoutNegativeWarning remains. Earlier limitations from Sessions 46-62 still apply.
+
+### Next
+Coordinates in the order response (the restaurant point and the delivery point, without handing the customer's exact pin to the restaurant owner) and the tracking map on the customer order page, with a useOrderTracking hook on one shared socket and the existing Leaflet map setup. Then the 4 s rider interval during a delivery, a trip simulator button for the demo, status nudges with a useLiveRefresh hook, rider offer push, and pagination on the long order lists if time allows. After that come the admin dashboard, Docker Compose, the design pass and the README.
+
+### Interview line
+"I built live tracking as a one-way pipeline: the delivery service publishes the rider's position to Kafka and the notification service pushes it over a WebSocket only to the customer who owns the order, verified by asking the order service with the customer's own token. A Kafka freeze test showed positions jumping backwards after a replay, so I made the store ignore any point that is not newer than the one it has."
