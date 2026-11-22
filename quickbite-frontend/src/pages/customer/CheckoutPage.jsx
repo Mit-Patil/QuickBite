@@ -11,8 +11,6 @@ import Notice from '../../components/Notice';
 import styles from './CheckoutPage.module.css';
 import useDeliveryQuote from '../../hooks/useDeliveryQuote';
 
-const TAX_RATE = 0.05;
-
 function amountLabel(quoting, amount) {
   if (quoting) return 'Calculating...';
   if (amount == null) return '—';
@@ -106,11 +104,13 @@ function CheckoutPage() {
   }
 
   const subtotal = Number(cart.subtotal);
-  const taxAmount = Math.round(subtotal * TAX_RATE * 100) / 100;
+  const taxRate = quote ? Number(quote.taxRate) : null;
+  const taxAmount = taxRate == null ? null : Math.round(subtotal * taxRate * 100) / 100;
   const deliveryFee = quote ? Number(quote.deliveryFee) : null;
-  const total = deliveryFee == null ? null : subtotal + taxAmount + deliveryFee;
-  const canPlace = quote != null && !quoting;
+  const total = quote ? subtotal + taxAmount + deliveryFee : null;
+  const taxText = taxRate == null ? '' : ` (${Math.round(taxRate * 100)}%)`;
   const distanceText = quote ? ` (${quote.distanceKm} km)` : '';
+  const canPlace = quote != null && !quoting;
 
   return (
     <div>
@@ -193,7 +193,7 @@ function CheckoutPage() {
           </ul>
 
           <div className={styles.row}><span>Subtotal</span><span>₹{formatPrice(subtotal)}</span></div>
-          <div className={styles.row}><span>Taxes ({Math.round(TAX_RATE * 100)}%)</span><span>₹{formatPrice(taxAmount)}</span></div>
+          <div className={styles.row}><span>Taxes{taxText}</span><span>{amountLabel(quoting, taxAmount)}</span></div>
           <div className={styles.row}><span>Delivery fee{distanceText}</span><span>{amountLabel(quoting, deliveryFee)}</span></div>
           <div className={styles.total}><span>Total</span><span>{amountLabel(quoting, total)}</span></div>
           <p className={styles.note}>Final amounts are confirmed when the order is placed.</p>
