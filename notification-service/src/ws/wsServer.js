@@ -2,6 +2,7 @@ const { WebSocketServer } = require('ws');
 const { allowedOrigins, authTimeoutMs, heartbeatMs } = require('../config/env');
 const { verifyToken } = require('../auth/verifyToken');
 const hub = require('./hub');
+const trackHandler = require('./trackHandler');
 
 function attachWebSocket(server) {
   const wss = new WebSocketServer({ server, path: '/ws' });
@@ -37,6 +38,7 @@ function attachWebSocket(server) {
         }
         try {
           socket.user = verifyToken(message.token);
+          socket.token = message.token;
         } catch (err) {
           socket.close(4401, err.message);
           return;
@@ -48,6 +50,10 @@ function attachWebSocket(server) {
         return;
       }
 
+      if (message.type === 'track') {
+        trackHandler.handleTrack(socket, message.orderId)
+          .catch((err) => console.error('track failed:', err.message));
+      }
     });
 
     socket.on('close', () => {

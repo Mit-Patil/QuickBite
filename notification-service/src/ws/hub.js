@@ -32,4 +32,13 @@ function personalChannel({ userId, role }) {
   return null; 
 }
 
-module.exports = { subscribe, unsubscribeAll, send, broadcast, personalChannel };
+const orderChannel = (orderId) => `order:${orderId}`;
+
+function dropChannel(channel) {
+  const sockets = channels.get(channel);
+  if (!sockets) return;
+  for (const socket of sockets) socket.channels.delete(channel);
+  channels.delete(channel);
+}
+
+module.exports = { subscribe, unsubscribeAll, send, broadcast, personalChannel, orderChannel, dropChannel };

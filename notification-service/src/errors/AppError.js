@@ -10,4 +10,8 @@ class UnauthorizedError extends AppError {
   constructor(message) { super(message, 401); }
 }
 
-module.exports = { AppError, UnauthorizedError };
+class ServiceUnavailableError extends AppError {
+  constructor(message) { super(message, 503); }
+}
+
+module.exports = { AppError, UnauthorizedError, ServiceUnavailableError };
