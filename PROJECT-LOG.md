@@ -1669,3 +1669,36 @@ Coordinates in the order response (the restaurant point and the delivery point, 
 
 ### Interview line
 "I built live tracking as a one-way pipeline: the delivery service publishes the rider's position to Kafka and the notification service pushes it over a WebSocket only to the customer who owns the order, verified by asking the order service with the customer's own token. A Kafka freeze test showed positions jumping backwards after a replay, so I made the store ignore any point that is not newer than the one it has."
+
+## Session 64 — 23 Nov 2026: Customer tracking map (tracking info endpoint, shared socket client and live map)
+
+### Goal
+Show the customer a live map of the delivery: the restaurant, the delivery address and the rider moving between them, built on the tracking pipeline from Session 63.
+
+### What was built / changed
+- restaurant-order-service: new customer-only GET /api/orders/{id}/tracking returns the restaurant point and the delivery point of the order (TrackingInfoResponse). It is separate from OrderResponse on purpose: that DTO also feeds the restaurant owner's list, and the owner must not receive the customer's exact pin. The ownership rule moved into one private findOwnedOrder used by getById and getTrackingInfo.
+- notification-service: new untrack message (hub.unsubscribe, with unsubscribeAll reusing it, and trackHandler.handleUntrack) so a page can stop listening on the shared socket. scripts/track-check.js logs in, opens the socket, tracks one order and prints what arrives, with an optional untrack after N seconds, for repeatable checks.
+- quickbite-frontend: one shared socket per login (live/liveSocket.js without React, LiveProvider mounted in main.jsx inside AuthProvider, customers only). It reconnects with a growing delay (1 s up to 15 s with a little jitter), asks for every tracked order again after each reconnect, retries track after UNAVAILABLE, and does not retry for a bad token or a refused origin. useOrderTracking(orderId, enabled) returns position, state, available and connected.
+- TrackingMap (react-leaflet, reusing MAP_CONFIG) shows restaurant, home and rider markers and a dashed line from the rider to the current target (the restaurant, then home after pickup). It refits the view only when the rider first appears or the phase changes, so a customer who zooms is not pulled back, and useAnimatedPosition glides the rider marker between reports. OrderTracking fetches the two fixed points once and shows the map on the order page for CONFIRMED to OUT_FOR_DELIVERY; the trackable statuses and the phase wording live in utils/orderStatus.js.
+
+### Bugs found by testing and fixes
+- The first run of the tracker showed "Reconnecting..." forever: the live provider was not mounted yet, and the text could not tell a missing socket from a lost one. The hook now reports availability and the page says "Live updates are off" when there is no socket.
+- No other application bugs found. A marker position that looked wrong turned out to be correct: the order's address was not the test address assumed in the test notes (checked with the track-check output and a screenshot).
+
+### Verified
+- API with a PowerShell helper: the customer gets 200 and both points equal the database values; an old order returns the restaurant point and a null delivery point; another customer gets 400; the owner, the rider and no token get 403; an unknown or malformed id gets 400; the owner's list and the normal order response do not contain the delivery point.
+- track-check script: after untrack no more locations arrive, while without it they keep coming every 10 s; another customer gets NOT_FOUND and the owner FORBIDDEN; the points received equal the coordinates typed on the rider page.
+- Browser: Connected with the live position and phase text; leaving the order page sends untrack and returning sends track over the same connection; the section disappears when the order is delivered; owners, riders and a logged-out browser open no socket; after the notification service restarts the page shows Reconnecting... and then catches up with the position sent during the outage (Kafka keeps the points). The map shows the three markers, the rider glides to new positions, the dashed line goes to the restaurant and to home after pickup, panning is not undone by new points, a reload restores the last position, and the map disappears on delivery.
+
+### Known limitations
+- The line is straight, not a road route; the markers are emoji placeholders for the design pass; no styling yet.
+- Each browser tab opens its own socket, and in development React StrictMode opens and closes one extra socket (a console warning only).
+- An untrack that arrives while the ownership lookup of the same track is still running does not cancel it, so the subscription can stay until the order ends or the socket closes (the client ignores those messages).
+- Only customers can track; the restaurant owner map is not built. The rider page still reports every 10 s, and a hidden or fully covered browser window is throttled to about one report a minute.
+- Old orders without a delivery point show "The map is not available for this order". Earlier limitations from Sessions 46-63 still apply.
+
+### Next
+Rider trip simulator: a rider-only route endpoint in the order service (the restaurant and delivery points of the rider's own delivery), a Simulate trip button on the rider page, and a 4 s reporting interval during a delivery. Then status nudges (useLiveRefresh) for the customer and restaurant pages, rider offer push, the admin dashboard, Docker Compose, the design pass and the README.
+
+### Interview line
+"I kept the moving rider position on the WebSocket and fetched the two fixed points once from a customer-only endpoint, so the customer's exact pin never reaches the restaurant owner, and the map glides between reports and only refits when the phase changes, so it never fights a customer who is zooming."
