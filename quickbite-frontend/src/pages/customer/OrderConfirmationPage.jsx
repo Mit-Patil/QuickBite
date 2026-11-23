@@ -8,6 +8,7 @@ import ErrorMessage from '../../components/ErrorMessage';
 import Notice from '../../components/Notice';
 import styles from './OrderConfirmationPage.module.css';
 import { statusLabel } from '../../utils/orderStatus';
+import OrderTracking from '../../components/OrderTracking';
 
 const STEPS = [
   { status: 'CONFIRMED', label: 'Confirmed' },
@@ -124,6 +125,7 @@ function OrderConfirmationPage() {
           ))}
         </ol>
       )}
+      <OrderTracking order={order} />
 
       <section className={styles.card}>
         <h2 className={styles.cardTitle}>{order.restaurantName}</h2>

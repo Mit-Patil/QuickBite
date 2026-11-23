@@ -44,3 +44,7 @@ export function runOwnerAction(key, orderId, reason) {
 export function getDeliveryQuote(addressId) {
   return orderClient.get('/api/orders/delivery-quote', { params: { addressId } });
 }
+
+export function getTrackingInfo(orderId) {
+  return orderClient.get(`/api/orders/${orderId}/tracking`);
+}

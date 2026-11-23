@@ -11,6 +11,13 @@ export const ORDER_STATUS = {
   PAYMENT_FAILED:     { owner: 'Payment failed',     customer: 'Payment failed',             tone: 'danger' },
 };
 
+export const PHASE_LABEL = {
+  TO_RESTAURANT: 'Your delivery partner is heading to the restaurant',
+  TO_CUSTOMER: 'Your delivery partner is on the way to you',
+};
+export const TRACKABLE_STATUSES = ['CONFIRMED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'];
+export const isTrackable = (status) => TRACKABLE_STATUSES.includes(status);
+
 export const statusLabel = (status, role = 'customer') =>
   ORDER_STATUS[status]?.[role] ?? status;
 
