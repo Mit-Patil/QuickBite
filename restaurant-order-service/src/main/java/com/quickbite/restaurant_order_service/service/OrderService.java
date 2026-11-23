@@ -309,14 +309,24 @@ public class OrderService {
     }
 
     public OrderResponse getById(UUID orderId, UUID customerId) {
+        return toResponse(findOwnedOrder(orderId, customerId));
+    }
+
+    @Transactional(readOnly = true)
+    public TrackingInfoResponse getTrackingInfo(UUID orderId, UUID customerId) {
+        Order order = findOwnedOrder(orderId, customerId);
+        Restaurant restaurant = order.getRestaurant();
+        return new TrackingInfoResponse(restaurant.getLatitude(), restaurant.getLongitude(),
+                order.getDeliveryLatitude(), order.getDeliveryLongitude());
+    }
+
+    private Order findOwnedOrder(UUID orderId, UUID customerId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new IllegalArgumentException("Order not found"));
-
         if (!order.getCustomerId().equals(customerId)) {
             throw new IllegalArgumentException("This is not your order");
         }
-
-        return toResponse(order);
+        return order;
     }
     
     public List<OrderResponse> getOrdersForRestaurant(UUID restaurantId, UUID ownerId){
