@@ -54,6 +54,10 @@ function attachWebSocket(server) {
         trackHandler.handleTrack(socket, message.orderId)
           .catch((err) => console.error('track failed:', err.message));
       }
+
+      if (message.type === 'untrack') {
+        trackHandler.handleUntrack(socket, message.orderId);
+      }
     });
 
     socket.on('close', () => {

@@ -38,4 +38,9 @@ async function handleTrack(socket, rawOrderId) {
   return confirm(socket, orderId);
 }
 
-module.exports = { handleTrack };
+function handleUntrack(socket, rawOrderId) {
+  if (typeof rawOrderId !== 'string') return;
+  hub.unsubscribe(hub.orderChannel(rawOrderId.toLowerCase()), socket);
+}
+
+module.exports = { handleTrack, handleUntrack };

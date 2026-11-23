@@ -6,14 +6,17 @@ function subscribe(channel, socket) {
   socket.channels.add(channel);
 }
 
-function unsubscribeAll(socket) {
-  for (const channel of socket.channels) {
-    const sockets = channels.get(channel);
-    if (!sockets) continue;
+function unsubscribe(channel, socket) {
+  const sockets = channels.get(channel);
+  if (sockets) {
     sockets.delete(socket);
     if (sockets.size === 0) channels.delete(channel);
   }
-  socket.channels.clear();
+  socket.channels.delete(channel);
+}
+
+function unsubscribeAll(socket) {
+  for (const channel of [...socket.channels]) unsubscribe(channel, socket);
 }
 
 function send(socket, message) {
@@ -41,4 +44,4 @@ function dropChannel(channel) {
   channels.delete(channel);
 }
 
-module.exports = { subscribe, unsubscribeAll, send, broadcast, personalChannel, orderChannel, dropChannel };
+module.exports = { subscribe, unsubscribe, unsubscribeAll, send, broadcast, personalChannel, orderChannel, dropChannel };
