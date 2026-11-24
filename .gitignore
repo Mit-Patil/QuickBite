@@ -34,3 +34,4 @@ Thumbs.db
 
 # local test helper
 /ping-rider.ps1
+/qb-helpers.ps1
