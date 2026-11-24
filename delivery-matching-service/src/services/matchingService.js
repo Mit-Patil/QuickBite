@@ -8,10 +8,10 @@ const offerStore = require('./offerStore');
 const deliveryRepository = require('../repositories/deliveryRepository');
 const { getRestaurantLocation } = require('../clients/restaurantClient');
 const { publish } = require('../kafka/producer');
-const { ConflictError } = require('../errors/AppError');
+const { ConflictError, ForbiddenError, ValidationError } = require('../errors/AppError');
 const { changeOrderStatus } = require('../clients/orderClient');
-const { ForbiddenError } = require('../errors/AppError');
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ASSIGNMENT_TTL_SECONDS = 24 * 60 * 60;
 const assignmentKey = (orderId) => `delivery:assignment:${orderId}`;
 const cancelledKey = (orderId) => `delivery:cancelled:${orderId}`;
@@ -61,7 +61,16 @@ async function scheduleRetryOrGiveUp(orderId, restaurantId, isRetry) {
   }
 }
 
-async function matchOrder({ orderId, restaurantId }, { isRetry = false } = {}) {
+async function matchOrder(event, options = {}) {
+  try {
+    await findRider(event, options);
+  } catch (err) {
+    console.error(`Matching failed for order ${event.orderId}: ${err.message}`);
+    await scheduleRetryOrGiveUp(event.orderId, event.restaurantId, Boolean(options.isRetry));
+  }
+}
+
+async function findRider({ orderId, restaurantId }, { isRetry = false } = {}) {
   if (await redis.exists(cancelledKey(orderId))) {
     await retryQueue.remove(orderId);
     console.log(`Order ${orderId} is cancelled, not matching`);
@@ -171,9 +180,15 @@ async function expireOffer(orderId) {
   await matchOrder({ orderId, restaurantId: offer.restaurantId }, { isRetry: true });
 }
 
+
 async function assertAssignedTo(orderId, partnerId) {
-  const assigned = await redis.get(assignmentKey(orderId));
-  if (assigned !== partnerId) throw new ForbiddenError('This is not your delivery');
+  if ((await redis.get(assignmentKey(orderId))) === partnerId) return;
+
+  if (!UUID_PATTERN.test(orderId)) throw new ValidationError('Invalid order id');
+  if (!(await deliveryRepository.isActiveFor(orderId, partnerId))) {
+    throw new ForbiddenError('This is not your delivery');
+  }
+  await redis.set(assignmentKey(orderId), partnerId, 'EX', ASSIGNMENT_TTL_SECONDS); 
 }
 
 async function pickUp(orderId, partnerId, authHeader) {

@@ -158,4 +158,13 @@ async function recordOutcome({ orderId, partnerId, outcome, restaurantName, dist
   );
 }
 
-module.exports = { createAssigned, markPickedUp, markDelivered, markCancelled, advanceOrderStatus, findCurrentForPartner, summarizeMonth, findMonth, acceptanceStats, listPartnersWithDeliveries, recordOutcome };
+async function isActiveFor(orderId, partnerId) {
+  const { rows } = await pool.query(
+    `SELECT 1 FROM deliveries
+     WHERE order_id = $1 AND partner_id = $2 AND status IN ('ASSIGNED', 'PICKED_UP')`,
+    [orderId, partnerId]
+  );
+  return rows.length > 0;
+}
+
+module.exports = { createAssigned, markPickedUp, markDelivered, markCancelled, advanceOrderStatus, findCurrentForPartner, summarizeMonth, findMonth, acceptanceStats, listPartnersWithDeliveries, recordOutcome, isActiveFor };
