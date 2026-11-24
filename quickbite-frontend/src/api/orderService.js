@@ -48,3 +48,7 @@ export function getDeliveryQuote(addressId) {
 export function getTrackingInfo(orderId) {
   return orderClient.get(`/api/orders/${orderId}/tracking`);
 }
+
+export function getRouteInfo(orderId) {
+  return orderClient.get(`/api/orders/${orderId}/route`);
+}

@@ -8,8 +8,10 @@ import { partnerActions, partnerStatusText } from '../../utils/orderStatus';
 import { shortOrderId } from '../../utils/format';
 import Button from '../../components/Button';
 import ErrorMessage from '../../components/ErrorMessage';
+import useTripSimulator from '../../hooks/useTripSimulator';
 
-const LOCATION_MS = 10000;
+const IDLE_LOCATION_MS = 10000;
+const ACTIVE_LOCATION_MS = 4000;
 const OFFER_MS = 3000;
 const DELIVERY_MS = 5000;
 
@@ -27,6 +29,7 @@ function DeliveryHome() {
   const [error, setError] = useState('');
   const offerGuard = useRequestGuard();
   const deliveryGuard = useRequestGuard();
+  const simulator = useTripSimulator({ delivery, coords, setCoords });
 
   async function sendLocation() {
     const lat = toNumber(coords.lat);
@@ -128,9 +131,9 @@ function DeliveryHome() {
   const showDelivery = Boolean(delivery)
     && !(delivery.status === 'CANCELLED' && delivery.orderId === dismissedId);
 
-  usePolling(sendLocation, LOCATION_MS, { enabled: online, pauseWhenHidden: false });
+  usePolling(sendLocation, hasActiveDelivery ? ACTIVE_LOCATION_MS : IDLE_LOCATION_MS, { enabled: online, pauseWhenHidden: false });
   usePolling(refreshOffer, OFFER_MS, { enabled: online, pauseWhenHidden: false });
-  usePolling(refreshDelivery, DELIVERY_MS);
+  usePolling(refreshDelivery, DELIVERY_MS, { pauseWhenHidden: false });
   usePolling(() => setNow(Date.now()), 1000, { enabled: Boolean(offer) });
 
   return (
@@ -146,11 +149,11 @@ function DeliveryHome() {
         </p>
         <label>
           Latitude{' '}
-          <input value={coords.lat} onChange={(e) => setCoords({ ...coords, lat: e.target.value })} />
+          <input value={coords.lat} onChange={(e) => setCoords({ ...coords, lat: e.target.value })} disabled={simulator.running}/>
         </label>{' '}
         <label>
           Longitude{' '}
-          <input value={coords.lng} onChange={(e) => setCoords({ ...coords, lng: e.target.value })} />
+          <input value={coords.lng} onChange={(e) => setCoords({ ...coords, lng: e.target.value })} disabled={simulator.running}/>
         </label>
         <Button
           type="button"
@@ -159,6 +162,20 @@ function DeliveryHome() {
         >
           {online ? 'Go offline' : 'Go online'}
         </Button>
+
+        {hasActiveDelivery && (
+          <>
+            <Button
+              type="button"
+              disabled={!online}
+              onClick={simulator.running ? simulator.stop : simulator.start}
+            >
+              {simulator.running ? 'Stop simulation' : 'Simulate trip'}
+            </Button>
+            {!online && <p>Go online to simulate the trip.</p>}
+            <ErrorMessage message={simulator.error} />
+          </>
+        )}
       </section>
 
       {offer && (
