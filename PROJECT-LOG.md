@@ -1702,3 +1702,38 @@ Rider trip simulator: a rider-only route endpoint in the order service (the rest
 
 ### Interview line
 "I kept the moving rider position on the WebSocket and fetched the two fixed points once from a customer-only endpoint, so the customer's exact pin never reaches the restaurant owner, and the map glides between reports and only refits when the phase changes, so it never fights a customer who is zooming."
+
+## Session 65 — 24 Nov 2026: Rider trip simulator, rider route endpoint, durable delivery ownership and a never-stuck matching fix
+
+### Goal
+Let one click on the rider page walk the rider to the restaurant and then to the customer so the live tracking can be demonstrated without moving a laptop, make pickup and delivery survive the loss of Redis keys, and make sure a matching error cannot leave an order stuck.
+
+### What was built / changed
+- restaurant-order-service: new rider-only GET /api/orders/{id}/route returns the restaurant point and the delivery point of the rider's own delivery. The ownership rule is the order's deliveryPartnerId (the same as pickup and deliver), only active statuses (ACCEPTED to OUT_FOR_DELIVERY) are allowed, and a finished order returns 409. The customer and rider endpoints share one toTrackingInfo mapper.
+- quickbite-frontend: getRouteInfo in orderService.js, utils/geo.js (distanceMeters and moveToward), and useTripSimulator. The simulator only changes the latitude and longitude fields on the rider page, so the normal reporting loop sends the points and everything downstream is unchanged. The target is the restaurant until pickup and then the customer's address, so it waits at the restaurant by itself. DeliveryHome has a Simulate trip button, disables the fields while simulating, reports every 4 s during a delivery (10 s when idle), and its delivery poll no longer pauses when the window is hidden.
+- delivery-matching-service: pickup and deliver no longer depend only on the Redis assignment key. assertAssignedTo reads Redis first and, when it disagrees, asks the deliveries table (deliveryRepository.isActiveFor: ASSIGNED or PICKED_UP for this order and rider) and repairs the lost key. A malformed order id returns 400 instead of reaching Postgres, and the two AppError requires were merged. matchOrder now wraps the matching (renamed findRider) in a try/catch: any error goes through the same scheduleRetryOrGiveUp path as "no rider nearby", so the order is retried and, after the maximum attempts, NO_PARTNER_FOUND auto-cancels it with a refund.
+- Local test helper qb-helpers.ps1 (tokens, a request function that reads error bodies, a result printer) is git-ignored because it holds dev passwords.
+
+### Bugs found by testing and fixes
+- An order left in READY_FOR_PICKUP overnight could not be picked up ("This is not your delivery"): the guard read only the Redis assignment key, and Redis keeps its data weakly (no append-only file, an anonymous volume, hourly snapshots). Fixed with the database check above. The failure was reproduced on purpose by deleting the two Redis keys of a live delivery and then confirming that pickup and delivery succeed and the key is repaired.
+- A first attempt to repair the order by hand set the rider's busy key instead of the assignment key, which only made the rider show busy; the dev order was cleaned up by SQL and the key deleted.
+- A matching experiment called a repository function that did not exist, the matching threw, the consumer logged and committed the message, and the order stayed ACCEPTED with no retry. The experiment was removed (not committed) and the underlying gap is fixed: matchOrder now catches errors and retries or gives up.
+- The simulation kept moving after the owner cancelled while the rider window was in the background, because the delivery poll paused when the window was hidden; the poll now runs when hidden.
+
+### Verified
+- Route endpoint (PowerShell helper): own delivery 200 with the same four numbers as the customer's tracking endpoint, another rider 400, a customer, the owner and no token 403, an unknown id 400, a finished order 409, a malformed id 400.
+- Simulator in the browser and with the track-check script: points arrive 4 s apart and move about 50 m each (25 m every 2 s), the rider walks to the restaurant and waits, walks to the customer after pickup, stops on arrival, the customer map follows and tracking-ended arrives on delivery; Stop simulation freezes the fields while reporting continues; cancelling the order while simulating stops the simulation within about 5 s with the rider window visible.
+- Durable guard: another rider gets 403 normally and after the keys are deleted, a malformed id gets 400, pickup and delivery return 200 after both Redis keys were deleted, the assignment key is back afterwards, and the rider page shows available again.
+- Never-stuck matching: with the broken call temporarily in place, the failed matching was retried and the order was finally auto-cancelled, so nothing stayed in ACCEPTED; after the call was removed a normal order is offered to the rider within seconds.
+
+### Known limitations
+- An error after a rider has already been claimed (between claimPartner and createOffer) is not covered by the retry, so that rider can stay busy until the 2 hour busy key expires.
+- Redis persistence is weak (no append-only file, anonymous volume); a wipe also loses the retry queue and offers in flight. Planned for the Docker Compose step. The delivery service has no graceful shutdown, so each restart takes about 25 s to rejoin Kafka.
+- A rider can press Picked up or Delivered from anywhere; the proximity rule is planned. Reloading the rider page sets the rider offline locally and resets the fields. A hidden or covered browser window is still throttled to about one update a minute.
+- A rider whose Redis keys are lost can still be offered a second order while the first is open. Orders in READY_FOR_PICKUP or later cannot be cancelled by the owner. Earlier limitations from Sessions 46-64 still apply.
+
+### Next
+One session for the status nudges (notification routing, useLiveRefresh on the customer and restaurant pages) and the pickup and delivered proximity rule (the rider's last position stored in Redis, the route endpoint reused through orderClient, a setting to switch it off for demos). Then rider offer push, the admin dashboard, Docker Compose with Redis persistence, the design pass and the README.
+
+### Interview line
+"When an order became impossible to pick up after Redis lost its keys, I made the durable deliveries table the source of truth, with Redis as the fast path that repairs itself, and I reproduced the failure on purpose by deleting the keys of a live delivery before and after the fix."
