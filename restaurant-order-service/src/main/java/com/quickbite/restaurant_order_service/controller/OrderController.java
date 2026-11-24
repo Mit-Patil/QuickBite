@@ -52,6 +52,12 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getTrackingInfo(id, getCurrentUserId()));
     }
 
+    @GetMapping("/{id}/route")
+    @PreAuthorize("hasRole('DELIVERY_PARTNER')")
+    public ResponseEntity<TrackingInfoResponse> getRoute(@PathVariable UUID id) {
+        return ResponseEntity.ok(orderService.getRouteForPartner(id, getCurrentUserId()));
+    }
+
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasRole('RESTAURANT_OWNER')")
     public ResponseEntity<OrderResponse> updateStatus(@PathVariable UUID id, @Valid @RequestBody UpdateOrderStatusRequest request){

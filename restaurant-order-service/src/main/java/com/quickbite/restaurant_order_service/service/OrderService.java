@@ -21,6 +21,8 @@ import org.springframework.web.client.RestClient;
 import com.quickbite.restaurant_order_service.client.UserAddressClient;
 import com.quickbite.restaurant_order_service.util.DeliveryFeePolicy;
 import com.quickbite.restaurant_order_service.util.GeoUtils;
+import java.util.EnumSet;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -39,6 +41,8 @@ public class OrderService {
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
     private final UserAddressClient userAddressClient;
     private final DeliveryFeePolicy deliveryFeePolicy;
+    private static final Set<OrderStatus> RIDER_ROUTE_STATUSES =
+        EnumSet.of(OrderStatus.ACCEPTED, OrderStatus.PREPARING, OrderStatus.READY_FOR_PICKUP, OrderStatus.OUT_FOR_DELIVERY);
 
     @Value("${order.tax-rate:0.05}")
     private BigDecimal taxRate;
@@ -314,7 +318,23 @@ public class OrderService {
 
     @Transactional(readOnly = true)
     public TrackingInfoResponse getTrackingInfo(UUID orderId, UUID customerId) {
-        Order order = findOwnedOrder(orderId, customerId);
+        return toTrackingInfo(findOwnedOrder(orderId, customerId));
+    }
+
+    @Transactional(readOnly = true)
+    public TrackingInfoResponse getRouteForPartner(UUID orderId, UUID partnerId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+        if (!partnerId.equals(order.getDeliveryPartnerId())) {
+            throw new IllegalArgumentException("This is not your delivery");
+        }
+        if (!RIDER_ROUTE_STATUSES.contains(order.getStatus())) {
+            throw new IllegalStateException("This delivery is no longer active");
+        }
+        return toTrackingInfo(order);
+    }
+
+    private TrackingInfoResponse toTrackingInfo(Order order) {
         Restaurant restaurant = order.getRestaurant();
         return new TrackingInfoResponse(restaurant.getLatitude(), restaurant.getLongitude(),
                 order.getDeliveryLatitude(), order.getDeliveryLongitude());
