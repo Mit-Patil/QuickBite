@@ -3,7 +3,7 @@ import { useAuth } from '../auth/AuthContext';
 import { createLiveSocket } from './liveSocket';
 
 const LiveContext = createContext(null);
-
+const LIVE_ROLES = ['CUSTOMER', 'RESTAURANT_OWNER'];
 const NOTIFICATION_URL = import.meta.env.VITE_NOTIFICATION_SERVICE_URL;
 const SOCKET_URL = NOTIFICATION_URL ? `${NOTIFICATION_URL.replace(/^http/, 'ws')}/ws` : null;
 
@@ -13,7 +13,7 @@ export function LiveProvider({ children }) {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    if (!SOCKET_URL || !user || user.role !== 'CUSTOMER') return undefined;
+    if (!SOCKET_URL || !user || !LIVE_ROLES.includes(user.role)) return undefined;
 
     const socket = createLiveSocket(SOCKET_URL, () => localStorage.getItem('token'));
     const stopListening = socket.onState(setConnected);

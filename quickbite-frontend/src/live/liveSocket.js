@@ -1,12 +1,16 @@
 const BASE_DELAY_MS = 1000;
 const MAX_DELAY_MS = 15000;
-const RETRY_TRACK_MS = 5000;
+const RETRY_SUBSCRIBE_MS = 5000;
 const NO_RETRY_CODES = new Set([1008, 4400, 4401]);
+const RETRY_KEY = {
+  'track-error': (message) => `track:${message.orderId}`,
+  'watch-error': (message) => `watch:${message.restaurantId}`,
+};
 
 export function createLiveSocket(url, getToken) {
   const messageListeners = new Set();
   const stateListeners = new Set();
-  const tracked = new Set(); 
+  const subscriptions = new Map();
 
   let socket = null;
   let ready = false;
@@ -23,8 +27,18 @@ export function createLiveSocket(url, getToken) {
     if (socket && ready) socket.send(JSON.stringify(message));
   }
 
-  function sendTrack(orderId) {
-    if (tracked.has(orderId)) send({ type: 'track', orderId });
+  function subscribe(key, message) {
+    subscriptions.set(key, message);
+    send(message);
+  }
+
+  function unsubscribe(key, message) {
+    subscriptions.delete(key);
+    send(message);
+  }
+
+  function resubscribe(key) {
+    if (subscriptions.has(key)) send(subscriptions.get(key));
   }
 
   function scheduleReconnect() {
@@ -52,11 +66,12 @@ export function createLiveSocket(url, getToken) {
       if (message.type === 'ready') {
         attempt = 0;
         setReady(true);
-        tracked.forEach((orderId) => sendTrack(orderId)); 
+        subscriptions.forEach((subscription) => send(subscription)); // nudges are lost offline, so ask again
         return;
       }
-      if (message.type === 'track-error' && message.reason === 'UNAVAILABLE') {
-        setTimeout(() => sendTrack(message.orderId), RETRY_TRACK_MS);
+      if (message.reason === 'UNAVAILABLE' && Object.hasOwn(RETRY_KEY, message.type)) {
+        const key = RETRY_KEY[message.type](message);
+        setTimeout(() => resubscribe(key), RETRY_SUBSCRIBE_MS);
       }
       messageListeners.forEach((listener) => listener(message));
     };
@@ -77,14 +92,10 @@ export function createLiveSocket(url, getToken) {
       clearTimeout(reconnectTimer);
       if (socket) socket.close();
     },
-    track(orderId) {
-      tracked.add(orderId);
-      sendTrack(orderId);
-    },
-    untrack(orderId) {
-      tracked.delete(orderId);
-      send({ type: 'untrack', orderId });
-    },
+    track: (orderId) => subscribe(`track:${orderId}`, { type: 'track', orderId }),
+    untrack: (orderId) => unsubscribe(`track:${orderId}`, { type: 'untrack', orderId }),
+    watch: (restaurantId) => subscribe(`watch:${restaurantId}`, { type: 'watch', restaurantId }),
+    unwatch: (restaurantId) => unsubscribe(`watch:${restaurantId}`, { type: 'unwatch', restaurantId }),
     onMessage(listener) {
       messageListeners.add(listener);
       return () => messageListeners.delete(listener);

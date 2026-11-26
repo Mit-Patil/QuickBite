@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { getOrderById } from '../../api/orderService';
 import { formatPrice, formatDateTime, shortOrderId } from '../../utils/format';
@@ -9,6 +9,8 @@ import Notice from '../../components/Notice';
 import styles from './OrderConfirmationPage.module.css';
 import { statusLabel } from '../../utils/orderStatus';
 import OrderTracking from '../../components/OrderTracking';
+import useLiveRefresh from '../../hooks/useLiveRefresh';
+import useRequestGuard from '../../hooks/useRequestGuard';
 
 const STEPS = [
   { status: 'CONFIRMED', label: 'Confirmed' },
@@ -18,8 +20,6 @@ const STEPS = [
   { status: 'OUT_FOR_DELIVERY', label: 'On the way' },
   { status: 'DELIVERED', label: 'Delivered' },
 ];
-
-const POLL_MS = 10000;
 
 function getHeadline(status, justPlaced, hasPartner) {
   if (status === 'CANCELLED') {
@@ -63,20 +63,18 @@ function OrderConfirmationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    loadOrder();
-    const timer = setInterval(() => {
-      if (!document.hidden) loadOrder();
-    }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [orderId]);
+  const guard = useRequestGuard();
+
+  useLiveRefresh(loadOrder, { orderId });
 
   async function loadOrder() {
+    const token = guard.start();
     try {
       const response = await getOrderById(orderId);
+      if (!guard.isCurrent(token)) return;
       setOrder(response.data);
     } catch (err) {
-      setError(err.message);
+      if (guard.isCurrent(token)) setError(err.message);
     } finally {
       setLoading(false);
     }

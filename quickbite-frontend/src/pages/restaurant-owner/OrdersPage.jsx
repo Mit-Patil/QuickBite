@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getOrdersForRestaurant, runOwnerAction } from '../../api/orderService';
 import { formatPrice, formatDateTime, shortOrderId } from '../../utils/format';
@@ -7,8 +7,8 @@ import StatusBadge from '../../components/StatusBadge';
 import Button from '../../components/Button';
 import ErrorMessage from '../../components/ErrorMessage';
 import styles from './OrdersPage.module.css';
+import useLiveRefresh from '../../hooks/useLiveRefresh';
 
-const POLL_MS = 10000;
 
 function OrdersPage() {
   const { id } = useParams();
@@ -20,13 +20,7 @@ function OrdersPage() {
   const latestLoad = useRef(0);
 
 
-  useEffect(() => {
-    loadOrders();
-    const timer = setInterval(() => {
-      if (!document.hidden) loadOrders();
-    }, POLL_MS);    
-    return () => clearInterval(timer);
-  }, [id]);
+  useLiveRefresh(loadOrders, { restaurantId: id });
 
   async function loadOrders() {
     const thisLoad = ++latestLoad.current;
