@@ -542,6 +542,16 @@ public class OrderService {
         }
         order.setDeliveryPartnerId(partnerId);
         orderRepository.save(order);
+
+        orderEventPublisher.publish(OrderEvent.builder()
+        .eventType("PARTNER_ASSIGNED")
+        .orderId(order.getId())
+        .customerId(order.getCustomerId())
+        .restaurantId(order.getRestaurant().getId())
+        .status(order.getStatus().name())
+        .occurredAt(java.time.Instant.now())
+        .build());
+        
         log.info("Assigned partner {} to order {}", partnerId, orderId);
     }
     
