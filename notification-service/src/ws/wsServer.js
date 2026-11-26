@@ -3,6 +3,7 @@ const { allowedOrigins, authTimeoutMs, heartbeatMs } = require('../config/env');
 const { verifyToken } = require('../auth/verifyToken');
 const hub = require('./hub');
 const trackHandler = require('./trackHandler');
+const watchHandler = require('./watchHandler');
 
 function attachWebSocket(server) {
   const wss = new WebSocketServer({ server, path: '/ws' });
@@ -57,6 +58,14 @@ function attachWebSocket(server) {
 
       if (message.type === 'untrack') {
         trackHandler.handleUntrack(socket, message.orderId);
+      }
+
+      if (message.type === 'watch') {
+        watchHandler.handleWatch(socket, message.restaurantId)
+          .catch((err) => console.error('watch failed:', err.message));
+      }
+      if (message.type === 'unwatch') {
+        watchHandler.handleUnwatch(socket, message.restaurantId);
       }
     });
 

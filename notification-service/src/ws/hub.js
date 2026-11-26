@@ -30,7 +30,7 @@ function broadcast(channel, message) {
 }
 
 function personalChannel({ userId, role }) {
-  if (role === 'CUSTOMER') return `customer:${userId}`;
+  if (role === 'CUSTOMER') return customerChannel(userId);
   if (role === 'DELIVERY_PARTNER') return `partner:${userId}`;
   return null; 
 }
@@ -44,4 +44,7 @@ function dropChannel(channel) {
   channels.delete(channel);
 }
 
-module.exports = { subscribe, unsubscribe, unsubscribeAll, send, broadcast, personalChannel, orderChannel, dropChannel };
+const customerChannel = (customerId) => `customer:${customerId}`;
+const restaurantChannel = (restaurantId) => `restaurant:${restaurantId}`;
+
+module.exports = { subscribe, unsubscribe, unsubscribeAll, send, broadcast, personalChannel, orderChannel, dropChannel, customerChannel, restaurantChannel };

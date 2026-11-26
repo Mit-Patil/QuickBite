@@ -1,19 +1,22 @@
 const kafka = require('./kafkaClient');
 const { orderEventsTopic, deliveryEventsTopic, riderLocationsTopic, consumerGroupId } = require('../config/env');
 const notifier = require('../services/notifier');
-const locationStore = require('../services/locationStore');
 
 const consumer = kafka.consumer({ groupId: consumerGroupId });
 
 const EVENT_TYPES = [
   'ORDER_CONFIRMED', 'ORDER_ACCEPTED', 'STATUS_CHANGED', 'ORDER_CANCELLED', 'PAYMENT_FAILED',
-  'DELIVERY_ASSIGNED', 'NO_PARTNER_AVAILABLE', 'NO_PARTNER_FOUND',
+  'DELIVERY_ASSIGNED', 'NO_PARTNER_AVAILABLE', 'NO_PARTNER_FOUND', 'PARTNER_ASSIGNED',
 ];
 
 const handlers = {
   ...Object.fromEntries(EVENT_TYPES.map((type) => [type, notifier.onEvent])),
   RIDER_LOCATION: notifier.onRiderLocation,
 };
+
+  for (const [type, handler] of Object.entries(handlers)) {
+    if (typeof handler !== 'function') throw new Error(`No handler function for ${type}`);
+  }
 
 async function startConsumer() {
   await consumer.connect();
@@ -35,10 +38,6 @@ async function startConsumer() {
 
       const handler = handlers[event.eventType];
       if (!handler) return;
-
-      for (const [type, handler] of Object.entries(handlers)) {
-        if (typeof handler !== 'function') throw new Error(`No handler function for ${type}`);
-      }
       try {
         await handler(event);
       } catch (err) {
@@ -47,7 +46,7 @@ async function startConsumer() {
     },
   });
 
-  console.log(`Consumer listening on ${orderEventsTopic}, ${deliveryEventsTopic}`);
+  console.log(`Consumer listening on ${orderEventsTopic}, ${deliveryEventsTopic}, ${riderLocationsTopic}`);
 }
 
 async function stopConsumer() {

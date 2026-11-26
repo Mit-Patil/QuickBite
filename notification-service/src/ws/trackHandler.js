@@ -1,10 +1,8 @@
 const hub = require('./hub');
 const locationStore = require('../services/locationStore');
 const orderAccess = require('../services/orderAccess');
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const { isUuid, MAX_CHANNELS_PER_SOCKET } = require('./validation');
 const TRACKABLE = new Set(['CONFIRMED', 'ACCEPTED', 'PREPARING', 'READY_FOR_PICKUP', 'OUT_FOR_DELIVERY']);
-const MAX_CHANNELS_PER_SOCKET = 10;
 
 function confirm(socket, orderId) {
   hub.send(socket, { type: 'tracking', orderId });
@@ -16,7 +14,7 @@ async function handleTrack(socket, rawOrderId) {
   const fail = (reason) => hub.send(socket, { type: 'track-error', orderId: rawOrderId, reason });
 
   if (socket.user.role !== 'CUSTOMER') return fail('FORBIDDEN');
-  if (typeof rawOrderId !== 'string' || !UUID.test(rawOrderId)) return fail('NOT_FOUND');
+  if (!isUuid(rawOrderId)) return fail('NOT_FOUND');
 
   const orderId = rawOrderId.toLowerCase();
   const channel = hub.orderChannel(orderId);

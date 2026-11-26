@@ -1,10 +1,10 @@
 const { orderServiceUrl } = require('../config/env');
 const { ServiceUnavailableError } = require('../errors/AppError');
 
-async function getOrderForCustomer(token, orderId) {
+async function fetchAsUser(token, path) {
   let response;
   try {
-    response = await fetch(`${orderServiceUrl}/api/orders/${orderId}`, {
+    response = await fetch(`${orderServiceUrl}${path}`, {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(3000),
     });
@@ -13,7 +13,15 @@ async function getOrderForCustomer(token, orderId) {
   }
   if (response.status === 200) return response.json();
   if (response.status >= 500) throw new ServiceUnavailableError('Order service failed');
-  return null; 
+  return null;
 }
 
-module.exports = { getOrderForCustomer };
+const getOrderForCustomer = (token, orderId) => fetchAsUser(token, `/api/orders/${orderId}`);
+
+async function ownsRestaurant(token, restaurantId) {
+  const restaurants = await fetchAsUser(token, '/api/restaurants/my');
+  return Array.isArray(restaurants)
+    && restaurants.some((restaurant) => String(restaurant.id).toLowerCase() === restaurantId);
+}
+
+module.exports = { getOrderForCustomer, ownsRestaurant };
