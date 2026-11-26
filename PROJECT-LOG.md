@@ -1737,3 +1737,36 @@ One session for the status nudges (notification routing, useLiveRefresh on the c
 
 ### Interview line
 "When an order became impossible to pick up after Redis lost its keys, I made the durable deliveries table the source of truth, with Redis as the fast path that repairs itself, and I reproduced the failure on purpose by deleting the keys of a live delivery before and after the fix."
+
+
+## Session 66 — 25–26 Nov 2026: Live status nudges for customer and owner pages and a pickup and delivery proximity rule
+
+### Goal
+Make the customer order page and the restaurant orders page update within about a second instead of waiting for a poll, and stop a rider from marking Picked up or Delivered from far away.
+
+### What was built / changed
+- restaurant-order-service: assignDeliveryPartner publishes a PARTNER_ASSIGNED event after the partner is saved (order, customer and restaurant ids and the status, no rider id). DELIVERY_ASSIGNED could not be used: it has no customer or restaurant id, and it fires before the order service has saved the partner, so a refetch could still see the old state.
+- notification-service: every order event (confirmed, accepted, status changed, cancelled, payment failed, partner assigned) sends a tiny order-changed nudge with only the order id to the customer's channel and the restaurant's channel; the page refetches the details over REST with its own token. New watch and unwatch messages let a restaurant owner subscribe to a restaurant; ownership is checked by calling the order service GET /api/restaurants/my with the owner's own token, with the same failure replies as track (NOT_FOUND, FORBIDDEN, UNAVAILABLE, TOO_MANY). A shared ws/validation.js, one fetchAsUser request function in orderAccess and channel helpers in hub.js remove duplication. scripts/live-check.js (flags --track, --watch, --untrack-after) replaces track-check.js. The consumer's missing-handler check now runs at startup, and an unused import and the startup log line were corrected.
+
+- quickbite-frontend: liveSocket keeps one subscription map for track and watch (re-sent after every reconnect, retried after UNAVAILABLE), the provider also connects for restaurant owners, and the new useLiveRefresh hook refetches 400 ms after a nudge and keeps usePolling as the safety net (30 s while connected, 10 s otherwise; the interval switch itself refetches on connect and disconnect). The customer order page and the owner orders page use it, and the customer page got a latest-request-wins guard.
+- delivery-matching-service: the rider's last position is stored in the heartbeat key ("lat,lng", expires with the 30 s heartbeat; locationService.getLastPosition). orderClient has one callOrderService used by changeOrderStatus and the new getRoute. assertNear runs after the ownership check in pickUp (restaurant) and deliver (customer): the rider must be within PROXIMITY_RADIUS_METERS (150) of the stop, with clear 409 messages; ENFORCE_RIDER_PROXIMITY=false switches the rule off for demos; utils/geo.js holds the haversine.
+
+### Bugs found by testing and fixes
+- No application bugs found. A customer page that updated 30-50 s after a no-partner cancel was the retry schedule (six attempts about 15 s apart before NO_PARTNER_FOUND), not a delay in the nudges; the restaurant timeout cancel is instant.
+
+### Verified
+- Nudges (live-check script): an order with seven events gave seven nudges, a cancelled order gave four, DELIVERY_ASSIGNED sent none, and another customer received nothing.
+- Customer page: accept, partner assigned, preparing, ready, picked up and delivered show in about 1 s; one refetch about 0.4 s after a nudge plus one every 30 s and no 10 s polling while connected; with the notification service stopped it falls back to 10 s and after the restart refreshes at once; quick consecutive changes end on the final state.
+- Owner page: a new order, the rider assignment and a cancel appear in about 1 s; the same 30 s and 10 s rhythm; unwatch is sent when leaving the page; riders open no socket. Script checks: another owner, an unknown id and a malformed id get NOT_FOUND, a customer and a rider get FORBIDDEN, and a stopped order service gives UNAVAILABLE.
+- Proximity (PowerShell helper): no recent location 409, pickup from 479 m 409, another rider 403, pickup at the restaurant 200, delivery from 488 m 409, delivery at the customer 200; the rider page shows the 409 text and the simulator completes the full trip.
+
+### Known limitations
+- A nudge sent while a page is offline is lost (the reconnect refetch and the poll cover it). An unwatch or untrack that arrives while the ownership lookup of the same request is still running does not cancel it. Only customers and owners use the socket; rider offers are still polled every 3 s.
+- The owner and customer order lists are not paginated, and the owner page refetches the whole list on every nudge.
+- The proximity rule needs a position newer than 30 s, so a hidden or covered rider window can block pickup; the radius is fixed at 150 m; a repeated Picked up from far away now shows the distance message instead of the idempotent success; the ENFORCE_RIDER_PROXIMITY=false switch was not tested. Earlier limitations from Sessions 46-65 still apply.
+
+### Next
+The design pass (about 1 to 3 days), starting with the tracking map: a real road route instead of the straight dashed line, with the simulator walking along it. Then the admin dashboard, Docker Compose (Redis persistence, graceful shutdown), rider offer push if time allows, and the README with the demo script.
+
+### Interview line
+"I built live updates as nudge and refetch: Kafka events trigger a tiny order-changed message over a WebSocket, the page reloads the real data over REST with its own token, and a slow poll stays as a safety net, so a lost message or a dead socket can never leave a page stale."
