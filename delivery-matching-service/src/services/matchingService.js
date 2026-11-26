@@ -1,6 +1,6 @@
 const redis = require('../config/redis');
 const {
-  searchRadiusKm, deliveryEventsTopic, retryDelaySeconds, maxRetryAttempts, maxOffers, riderSharePercent, recentCancelMinutes
+  searchRadiusKm, deliveryEventsTopic, retryDelaySeconds, maxRetryAttempts, maxOffers, riderSharePercent, recentCancelMinutes, enforceRiderProximity, proximityRadiusMeters
 } = require('../config/env');
 const locationService = require('./locationService');
 const retryQueue = require('./retryQueue');
@@ -9,7 +9,8 @@ const deliveryRepository = require('../repositories/deliveryRepository');
 const { getRestaurantLocation } = require('../clients/restaurantClient');
 const { publish } = require('../kafka/producer');
 const { ConflictError, ForbiddenError, ValidationError } = require('../errors/AppError');
-const { changeOrderStatus } = require('../clients/orderClient');
+const { changeOrderStatus, getRoute } = require('../clients/orderClient');
+const { distanceMeters } = require('../utils/geo');
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ASSIGNMENT_TTL_SECONDS = 24 * 60 * 60;
@@ -191,8 +192,33 @@ async function assertAssignedTo(orderId, partnerId) {
   await redis.set(assignmentKey(orderId), partnerId, 'EX', ASSIGNMENT_TTL_SECONDS); 
 }
 
+const STOPS = {
+  restaurant: { latitude: 'restaurantLatitude', longitude: 'restaurantLongitude', label: 'restaurant' },
+  customer: { latitude: 'deliveryLatitude', longitude: 'deliveryLongitude', label: 'delivery address' },
+};
+
+async function assertNear(orderId, partnerId, authHeader, stopName) {
+  if (!enforceRiderProximity) return;
+
+  const position = await locationService.getLastPosition(partnerId);
+  if (!position) {
+    throw new ConflictError('We do not have your current location. Keep this page open so it can report where you are.');
+  }
+
+  const stop = STOPS[stopName];
+  const route = await getRoute(orderId, authHeader);
+  const target = { lat: route[stop.latitude], lng: route[stop.longitude] };
+  if (target.lat == null || target.lng == null) return; // an order from before delivery points were stored
+
+  const meters = Math.round(distanceMeters(position, target));
+  if (meters > proximityRadiusMeters) {
+    throw new ConflictError(`You are about ${meters} m from the ${stop.label}. Move within ${proximityRadiusMeters} m first.`);
+  }
+}
+
 async function pickUp(orderId, partnerId, authHeader) {
   await assertAssignedTo(orderId, partnerId);
+  await assertNear(orderId, partnerId, authHeader, 'restaurant');
   await changeOrderStatus(orderId, 'pickup', authHeader);
   await recordHistory(orderId, () => deliveryRepository.markPickedUp(orderId));
   console.log(`Order ${orderId} picked up by partner ${partnerId}`);
@@ -200,6 +226,7 @@ async function pickUp(orderId, partnerId, authHeader) {
 
 async function deliver(orderId, partnerId, authHeader) {
   await assertAssignedTo(orderId, partnerId);
+  await assertNear(orderId, partnerId, authHeader, 'customer');
   const order = await changeOrderStatus(orderId, 'deliver', authHeader);
 
   const deliveryFee = Number(order.deliveryFee);

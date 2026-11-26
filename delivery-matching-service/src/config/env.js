@@ -28,6 +28,8 @@ module.exports = {
   offerTickMs: 2000,
   riderSharePercent: Number(process.env.RIDER_SHARE_PERCENT || 80),
   recentCancelMinutes: Number(process.env.RECENT_CANCEL_MINUTES || 10),
+  enforceRiderProximity: process.env.ENFORCE_RIDER_PROXIMITY !== 'false',
+  proximityRadiusMeters: Number(process.env.PROXIMITY_RADIUS_METERS || 150),
   
   heartbeatTtlSeconds: 30,
   searchRadiusKm: 5,

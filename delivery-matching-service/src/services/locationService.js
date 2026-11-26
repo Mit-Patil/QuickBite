@@ -20,7 +20,7 @@ async function reportLocation(partnerId, lat, lng) {
   assertValidCoordinates(lat, lng);
 
   const isBusy = await redis.exists(busyKey(partnerId));
-  const tx = redis.multi().set(heartbeatKey(partnerId), '1', 'EX', heartbeatTtlSeconds);
+  const tx = redis.multi().set(heartbeatKey(partnerId), `${lat},${lng}`, 'EX', heartbeatTtlSeconds);
   if (!isBusy) tx.geoadd(AVAILABLE_KEY, lng, lat, partnerId); 
   await tx.exec();
 
@@ -86,4 +86,11 @@ async function getBusyOrder(partnerId) {
   return redis.get(busyKey(partnerId));
 }
 
-module.exports = { reportLocation, claimPartner, releasePartner, goOffline, findNearest, getBusyOrder };
+async function getLastPosition(partnerId) {
+  const value = await redis.get(heartbeatKey(partnerId));
+  if (!value || !value.includes(',')) return null;
+  const [lat, lng] = value.split(',').map(Number);
+  return Number.isNaN(lat) || Number.isNaN(lng) ? null : { lat, lng };
+}
+
+module.exports = { reportLocation, claimPartner, releasePartner, goOffline, findNearest, getBusyOrder, getLastPosition };

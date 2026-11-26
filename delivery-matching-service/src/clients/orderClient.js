@@ -13,11 +13,11 @@ async function readMessage(res) {
   }
 }
 
-async function changeOrderStatus(orderId, action, authHeader) {
+async function callOrderService(method, path, authHeader) {
   let res;
   try {
-    res = await fetch(`${restaurantServiceUrl}/api/orders/${orderId}/${action}`, {
-      method: 'PATCH',
+    res = await fetch(`${restaurantServiceUrl}${path}`, {
+      method,
       headers: { Authorization: authHeader },
       signal: AbortSignal.timeout(5000),
     });
@@ -37,4 +37,10 @@ async function changeOrderStatus(orderId, action, authHeader) {
   }
 }
 
-module.exports = { changeOrderStatus };
+const changeOrderStatus = (orderId, action, authHeader) =>
+  callOrderService('PATCH', `/api/orders/${orderId}/${action}`, authHeader);
+
+const getRoute = (orderId, authHeader) =>
+  callOrderService('GET', `/api/orders/${orderId}/route`, authHeader);
+
+module.exports = { changeOrderStatus, getRoute };
