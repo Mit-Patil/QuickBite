@@ -1770,3 +1770,36 @@ The design pass (about 1 to 3 days), starting with the tracking map: a real road
 
 ### Interview line
 "I built live updates as nudge and refetch: Kafka events trigger a tiny order-changed message over a WebSocket, the page reloads the real data over REST with its own token, and a slow poll stays as a safety net, so a lost message or a dead socket can never leave a page stale."
+
+
+## Session 67 — 26–27 Nov 2026: Road route on the tracking map and a simulator that follows the roads
+
+### Goal
+Replace the straight dashed line on the customer's tracking map with the real road route and make the rider simulator drive along the roads, so the live demo looks like a real delivery app.
+
+### What was built / changed
+- quickbite-frontend: utils/routing.js asks a routing server (OSRM style, base URL in MAP_CONFIG.routingUrl with a VITE_ROUTING_URL override) for the road path between two points. Identical requests share one promise (cache keyed by points rounded to 4 decimals, failures are not cached), there is one retry after 1.2 s on 429 or 5xx, and every fallback logs its reason in the console.
+- useRoadRoute fetches one route per phase (the origin is read at that moment, so the moving rider never triggers new requests). TrackingMap draws the remaining road path as a solid line (remainingPath cuts the part already driven) and falls back to the dashed straight line when no route is available, using one Polyline with a key that differs between road and straight.
+- useTripSimulator fetches the road path once per leg and walks along it (advanceAlong in utils/geo.js, 25 m every 2 s). When the path ends it finishes with a straight hop to the exact stop, because a road ends at the nearest street and the 150 m proximity rule needs the real point. Without a route it keeps the old straight walk.
+
+### Bugs found by testing and fixes
+- The road line stayed dashed after a phase change and on later orders: react-leaflet reused one Polyline layer that had been created with the dashed fallback style, and Leaflet merges style updates, so the dash was never removed. Fixed with a single Polyline keyed by road or straight, which rebuilds the layer. An early suspicion of demo-server rate limiting was wrong, because no routing warning appeared.
+- Silent fallbacks made the cause hard to see, so the routing helper now logs the status or code whenever it returns no route.
+
+### Verified
+- The routing server answers a PowerShell request with code Ok, a distance and a duration.
+- Customer map: a solid road line from the rider to the restaurant and from the restaurant to home, switching at pickup; the line shortens as the rider moves; it survives a refresh; a second and third order are solid on both legs; repeated legs make no new route requests.
+- Simulator: follows the roads on both legs, stops on the exact stop, passes the 150 m pickup and delivery check and stops by itself at home.
+- Fallback: with VITE_ROUTING_URL pointing at an unreachable address the map shows the dashed straight line and the simulator walks straight, with a console warning and no page error; after removing the setting the road lines came back.
+
+### Known limitations
+- The public OSRM demo server is for light use only; for deployment use a self-hosted or another provider through VITE_ROUTING_URL and check its terms.
+- The route is fetched from the rider's first point of each phase; a rider far off the path is not re-routed.
+- Reloading the rider page resets the fields to the defaults in DeliveryHome and sets the rider offline, so a reload during a simulation puts the rider back on the start point.
+- The markers are emoji placeholders, there is no ETA yet and no styling. Earlier limitations from Sessions 46-66 still apply.
+
+### Next
+The design pass (1 to 3 days of copy and paste), then the admin dashboard, Docker Compose (Redis persistence, graceful shutdown) and the README with the demo script. Optional small items: keep the rider page's online state and fields in sessionStorage, and show an ETA from the route duration.
+
+### Interview line
+"To make live tracking look like a real delivery app I draw the road route from a routing service and make the simulator follow the same path, with a shared request cache and a straight-line fallback, and I traced a stubborn dashed-line bug to Leaflet merging style updates on a reused layer."
