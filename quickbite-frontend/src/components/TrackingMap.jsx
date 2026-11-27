@@ -4,6 +4,8 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MAP_CONFIG } from '../config/map';
 import useAnimatedPosition from '../hooks/useAnimatedPosition';
+import useRoadRoute from '../hooks/useRoadRoute';
+import { remainingPath } from '../utils/geo';
 
 const emojiIcon = (emoji) =>
   L.divIcon({
@@ -45,6 +47,11 @@ export default function TrackingMap({ restaurant, destination, rider, phase, hei
     .map((place) => [place.lat, place.lng]);
   const fitKey = `${phase ?? 'none'}:${rider ? 'rider' : 'no-rider'}`;
 
+  const route = useRoadRoute(rider, target, fitKey);
+  const roadPath = route
+  ? remainingPath(route.path, animatedRider).map((point) => [point.lat, point.lng])
+  : null;
+
   return (
     <MapContainer
       center={points[0] ?? MAP_CONFIG.defaultCenter}
@@ -72,8 +79,9 @@ export default function TrackingMap({ restaurant, destination, rider, phase, hei
           </Marker>
           {target && (
             <Polyline
-              positions={[[animatedRider.lat, animatedRider.lng], [target.lat, target.lng]]}
-              pathOptions={{ dashArray: '6 8' }}
+              key={roadPath ? 'road' : 'straight'}
+              positions={roadPath ?? [[animatedRider.lat, animatedRider.lng], [target.lat, target.lng]]}
+              pathOptions={roadPath ? { weight: 5 } : { dashArray: '6 8' }}
             />
           )}
         </>

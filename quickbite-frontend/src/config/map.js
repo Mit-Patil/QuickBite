@@ -11,4 +11,5 @@ export const MAP_CONFIG = {
     import.meta.env.VITE_NOMINATIM_URL || 'https://nominatim.openstreetmap.org',
   contactEmail: import.meta.env.VITE_GEOCODING_EMAIL || '',
   maxUsableAccuracyMeters: 5000,
+  routingUrl: import.meta.env.VITE_ROUTING_URL || 'https://router.project-osrm.org',
 };

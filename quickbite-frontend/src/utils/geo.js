@@ -18,3 +18,35 @@ export function moveToward(from, to, stepMeters) {
     lng: from.lng + (to.lng - from.lng) * fraction,
   };
 }
+
+export function remainingPath(path, position) {
+  if (!path?.length || !position) return path ?? [];
+  let nearest = 0;
+  let best = Infinity;
+  path.forEach((point, index) => {
+    const meters = distanceMeters(point, position);
+    if (meters < best) {
+      best = meters;
+      nearest = index;
+    }
+  });
+  return [position, ...path.slice(nearest + 1)];
+}
+
+export function advanceAlong(points, cursor, position, stepMeters) {
+  let current = position;
+  let index = cursor;
+  let remaining = stepMeters;
+  while (remaining > 0 && index < points.length) {
+    const distance = distanceMeters(current, points[index]);
+    if (distance <= remaining) {
+      current = points[index];
+      remaining -= distance;
+      index += 1;
+    } else {
+      current = moveToward(current, points[index], remaining);
+      remaining = 0;
+    }
+  }
+  return { position: current, cursor: index };
+}
